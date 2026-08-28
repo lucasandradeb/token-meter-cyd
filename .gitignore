@@ -13,6 +13,8 @@ __pycache__/
 *.env
 .env
 secrets.json
+.device_credentials.json
+daemon/.device_credentials.json
 
 # macOS
 .DS_Store
