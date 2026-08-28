@@ -1,152 +1,236 @@
 #include "ui.h"
+#include <Arduino.h>
 #include <lvgl.h>
 
-// Paleta propria (identidade neutra, sem assets da Anthropic).
-#define COL_BG        lv_color_hex(0x0E1116)  // fundo escuro
-#define COL_CARD      lv_color_hex(0x1B2430)  // trilho dos arcos
-#define COL_TEXT      lv_color_hex(0xE6EAF0)
-#define COL_MUTED     lv_color_hex(0x8A97A8)
-// Cores por nivel de uso (sinal glanceable).
-#define COL_OK        lv_color_hex(0x4CAF6E)  // verde  (<50%)
-#define COL_WARN      lv_color_hex(0xF2A33C)  // ambar  (<80%)
-#define COL_DANGER    lv_color_hex(0xE5534B)  // vermelho (>=80%)
+// ---- Paleta (identidade propria, tons quentes) ----------------------------
+#define COL_BG      lv_color_hex(0x0D0F0C)  // fundo quase preto
+#define COL_CARD    lv_color_hex(0x181C18)  // card
+#define COL_TEXT    lv_color_hex(0xF2EFE9)
+#define COL_MUTED   lv_color_hex(0x8B857B)
+#define COL_PILL    lv_color_hex(0x2A2F2A)
+#define COL_TRACK   lv_color_hex(0x2A2F2A)  // trilho da barra
+#define COL_ACCENT  lv_color_hex(0xD7663C)  // laranja (rodape/mascote)
+// Cores por nivel de uso.
+#define COL_OK      lv_color_hex(0x6FB07A)  // verde
+#define COL_WARN    lv_color_hex(0xE0A64B)  // ambar
+#define COL_DANGER  lv_color_hex(0xD9553F)  // vermelho
 
-// Cor do indicador conforme o percentual de uso.
 static lv_color_t level_color(int pct) {
     if (pct >= 80) return COL_DANGER;
     if (pct >= 50) return COL_WARN;
     return COL_OK;
 }
 
-static lv_obj_t *arc_session;
-static lv_obj_t *arc_weekly;
-static lv_obj_t *lbl_session_pct;
-static lv_obj_t *lbl_weekly_pct;
-static lv_obj_t *lbl_status;
-static lv_obj_t *conn_dot;    // indicador de conexao BLE (verde/cinza)
-static lv_obj_t *touch_dot;   // feedback visual do toque (confirma calibracao)
+// Um card = big %, pill, barra e linha de reset.
+struct Card {
+    lv_obj_t *pct;
+    lv_obj_t *bar;
+    lv_obj_t *reset;
+};
+static Card card_session;
+static Card card_weekly;
+static lv_obj_t *conn_dot;
+static lv_obj_t *lbl_footer;
 
-// Move um ponto para onde o dedo esta, para conferir a calibracao em uso real.
-static void screen_touch_cb(lv_event_t *e) {
-    lv_event_code_t code = lv_event_get_code(e);
-    if (code == LV_EVENT_PRESSING) {
-        lv_indev_t *indev = lv_indev_active();
-        if (!indev) return;
-        lv_point_t p;
-        lv_indev_get_point(indev, &p);
-        lv_obj_set_pos(touch_dot, p.x - 6, p.y - 6);
-        lv_obj_clear_flag(touch_dot, LV_OBJ_FLAG_HIDDEN);
-    } else if (code == LV_EVENT_RELEASED) {
-        lv_obj_add_flag(touch_dot, LV_OBJ_FLAG_HIDDEN);
+// Estado da contagem regressiva (recebido por BLE + instante de recepcao).
+static int base_sreset = 0, base_wreset = 0;
+static uint32_t recv_ms = 0;
+static uint32_t last_tick_ms = 0;
+
+// ---- Mascote pixel-art (desenho original, nao o Clawd) --------------------
+// 'o' contorno, 'b' corpo, 'e' olho, 'm' boca, ' ' transparente. 12x10.
+static const char *MASCOT[] = {
+    "  oooooooo  ",
+    " obbbbbbbbo ",
+    "obbbbbbbbbbo",
+    "obbeebbeebbo",
+    "obbeebbeebbo",
+    "obbbbbbbbbbo",
+    "obbbmmmmbbbo",
+    "obbbbbbbbbbo",
+    " obbbbbbbbo ",
+    "  o o  o o  ",
+};
+static const int MASCOT_W = 12, MASCOT_H = 10, MASCOT_S = 3;
+static uint8_t mascot_buf[12 * 3 * 10 * 3 * 4];  // ARGB8888 36x30
+
+static lv_color_t mascot_color(char c) {
+    switch (c) {
+        case 'o': return lv_color_hex(0x5A2E17);  // contorno marrom
+        case 'b': return COL_ACCENT;               // corpo laranja
+        case 'e': return lv_color_hex(0x1A0E07);   // olho escuro
+        case 'm': return lv_color_hex(0x3A1D0E);   // boca
+        default:  return COL_BG;
     }
 }
 
-// Cria um arco de progresso com rotulo de % no centro e uma legenda embaixo.
-static void make_gauge(lv_obj_t *parent, int x_offset, lv_color_t color,
-                       const char *caption, lv_obj_t **out_arc,
-                       lv_obj_t **out_lbl) {
-    lv_obj_t *arc = lv_arc_create(parent);
-    lv_obj_set_size(arc, 130, 130);
-    lv_obj_align(arc, LV_ALIGN_CENTER, x_offset, -10);
-    lv_arc_set_range(arc, 0, 100);
-    lv_arc_set_bg_angles(arc, 135, 45);   // arco em "U" aberto embaixo
-    lv_arc_set_value(arc, 0);
-    lv_obj_remove_flag(arc, LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_remove_style(arc, NULL, LV_PART_KNOB);  // sem knob arrastavel
-    // Cores: trilho de fundo e indicador.
-    lv_obj_set_style_arc_color(arc, COL_CARD, LV_PART_MAIN);
-    lv_obj_set_style_arc_color(arc, color, LV_PART_INDICATOR);
-    lv_obj_set_style_arc_width(arc, 12, LV_PART_MAIN);
-    lv_obj_set_style_arc_width(arc, 12, LV_PART_INDICATOR);
+static void paint_mascot(lv_obj_t *canvas) {
+    lv_canvas_fill_bg(canvas, COL_BG, LV_OPA_TRANSP);
+    for (int y = 0; y < MASCOT_H; y++) {
+        for (int x = 0; x < MASCOT_W; x++) {
+            char c = MASCOT[y][x];
+            if (c == ' ') continue;
+            lv_color_t col = mascot_color(c);
+            for (int dy = 0; dy < MASCOT_S; dy++)
+                for (int dx = 0; dx < MASCOT_S; dx++)
+                    lv_canvas_set_px(canvas, x * MASCOT_S + dx,
+                                     y * MASCOT_S + dy, col, LV_OPA_COVER);
+        }
+    }
+}
 
-    // Rotulo de % no centro do arco.
-    lv_obj_t *lbl = lv_label_create(arc);
-    lv_obj_set_style_text_font(lbl, &lv_font_montserrat_28, 0);
-    lv_obj_set_style_text_color(lbl, COL_TEXT, 0);
-    lv_label_set_text(lbl, "0%");
-    lv_obj_center(lbl);
+// ---- Construcao de um card ------------------------------------------------
+static void make_card(lv_obj_t *parent, int y, const char *pill_text,
+                      Card *out) {
+    lv_obj_t *card = lv_obj_create(parent);
+    lv_obj_set_size(card, 304, 82);
+    lv_obj_set_pos(card, 8, y);
+    lv_obj_set_style_bg_color(card, COL_CARD, 0);
+    lv_obj_set_style_bg_opa(card, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(card, 0, 0);
+    lv_obj_set_style_radius(card, 14, 0);
+    lv_obj_set_style_pad_all(card, 0, 0);
+    lv_obj_remove_flag(card, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Legenda abaixo do arco.
-    lv_obj_t *cap = lv_label_create(parent);
-    lv_obj_set_style_text_font(cap, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(cap, COL_MUTED, 0);
-    lv_label_set_text(cap, caption);
-    lv_obj_align_to(cap, arc, LV_ALIGN_OUT_BOTTOM_MID, 0, 4);
+    // % grande.
+    out->pct = lv_label_create(card);
+    lv_obj_set_style_text_font(out->pct, &lv_font_montserrat_40, 0);
+    lv_obj_set_style_text_color(out->pct, COL_TEXT, 0);
+    lv_label_set_text(out->pct, "--%");
+    lv_obj_align(out->pct, LV_ALIGN_TOP_LEFT, 14, 2);
 
-    *out_arc = arc;
-    *out_lbl = lbl;
+    // Pill de rotulo.
+    lv_obj_t *pill = lv_label_create(card);
+    lv_obj_set_style_text_font(pill, &lv_font_montserrat_20, 0);
+    lv_obj_set_style_text_color(pill, COL_TEXT, 0);
+    lv_obj_set_style_bg_color(pill, COL_PILL, 0);
+    lv_obj_set_style_bg_opa(pill, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(pill, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_pad_hor(pill, 12, 0);
+    lv_obj_set_style_pad_ver(pill, 4, 0);
+    lv_label_set_text(pill, pill_text);
+    lv_obj_align(pill, LV_ALIGN_TOP_RIGHT, -14, 12);
+
+    // Barra fina.
+    out->bar = lv_bar_create(card);
+    lv_obj_set_size(out->bar, 276, 10);
+    lv_obj_align(out->bar, LV_ALIGN_TOP_LEFT, 14, 50);
+    lv_bar_set_range(out->bar, 0, 100);
+    lv_bar_set_value(out->bar, 0, LV_ANIM_OFF);
+    lv_obj_set_style_bg_color(out->bar, COL_TRACK, LV_PART_MAIN);
+    lv_obj_set_style_radius(out->bar, 5, LV_PART_MAIN);
+    lv_obj_set_style_radius(out->bar, 5, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(out->bar, COL_OK, LV_PART_INDICATOR);
+
+    // Linha "Reseta em ...".
+    out->reset = lv_label_create(card);
+    lv_obj_set_style_text_font(out->reset, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(out->reset, COL_MUTED, 0);
+    lv_label_set_text(out->reset, "Reseta em --");
+    lv_obj_align(out->reset, LV_ALIGN_TOP_LEFT, 14, 64);
 }
 
 void ui_build(void) {
     lv_obj_t *scr = lv_screen_active();
     lv_obj_set_style_bg_color(scr, COL_BG, 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
-    lv_obj_add_flag(scr, LV_OBJ_FLAG_CLICKABLE);  // recebe eventos de toque
+    lv_obj_remove_flag(scr, LV_OBJ_FLAG_SCROLLABLE);
 
-    // Titulo.
+    // Topo: mascote (esq), titulo, bolinha de conexao (dir).
+    lv_obj_t *canvas = lv_canvas_create(scr);
+    lv_canvas_set_buffer(canvas, mascot_buf, MASCOT_W * MASCOT_S,
+                         MASCOT_H * MASCOT_S, LV_COLOR_FORMAT_ARGB8888);
+    lv_obj_align(canvas, LV_ALIGN_TOP_LEFT, 8, 6);
+    paint_mascot(canvas);
+
     lv_obj_t *title = lv_label_create(scr);
-    lv_obj_set_style_text_font(title, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_font(title, &lv_font_montserrat_20, 0);
     lv_obj_set_style_text_color(title, COL_TEXT, 0);
-    lv_label_set_text(title, "Claude Token Meter");
-    lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 6);
+    lv_label_set_text(title, "Token Meter");
+    lv_obj_align(title, LV_ALIGN_TOP_MID, 8, 12);
 
-    // Bolinha de conexao BLE no canto superior direito.
     conn_dot = lv_obj_create(scr);
     lv_obj_set_size(conn_dot, 12, 12);
     lv_obj_set_style_radius(conn_dot, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_border_width(conn_dot, 0, 0);
-    lv_obj_set_style_bg_color(conn_dot, COL_MUTED, 0);  // cinza = desconectado
-    lv_obj_align(conn_dot, LV_ALIGN_TOP_RIGHT, -8, 8);
+    lv_obj_set_style_bg_color(conn_dot, COL_MUTED, 0);
+    lv_obj_align(conn_dot, LV_ALIGN_TOP_RIGHT, -10, 14);
 
-    // Dois arcos: sessao (esquerda) e semana (direita). A cor do indicador
-    // e definida dinamicamente por ui_set_usage conforme o nivel.
-    make_gauge(scr, -80, COL_OK, "Sessao (5h)", &arc_session,
-               &lbl_session_pct);
-    make_gauge(scr, 80, COL_OK, "Semana", &arc_weekly, &lbl_weekly_pct);
+    // Dois cards.
+    make_card(scr, 42, "Sessao", &card_session);
+    make_card(scr, 128, "Semana", &card_weekly);
 
-    // Status de conexao no rodape.
-    lbl_status = lv_label_create(scr);
-    lv_obj_set_style_text_font(lbl_status, &lv_font_montserrat_14, 0);
-    lv_obj_set_style_text_color(lbl_status, COL_MUTED, 0);
-    lv_label_set_text(lbl_status, "BLE: aguardando...");
-    lv_obj_align(lbl_status, LV_ALIGN_BOTTOM_MID, 0, -4);
-
-    // Ponto de feedback do toque (confirma calibracao). Escondido por padrao.
-    touch_dot = lv_obj_create(scr);
-    lv_obj_set_size(touch_dot, 12, 12);
-    lv_obj_set_style_radius(touch_dot, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(touch_dot, COL_TEXT, 0);
-    lv_obj_set_style_border_width(touch_dot, 0, 0);
-    lv_obj_add_flag(touch_dot, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_add_event_cb(scr, screen_touch_cb, LV_EVENT_PRESSING, NULL);
-    lv_obj_add_event_cb(scr, screen_touch_cb, LV_EVENT_RELEASED, NULL);
+    // Rodape de status.
+    lbl_footer = lv_label_create(scr);
+    lv_obj_set_style_text_font(lbl_footer, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(lbl_footer, COL_MUTED, 0);
+    lv_label_set_text(lbl_footer, "Aguardando...");
+    lv_obj_align(lbl_footer, LV_ALIGN_BOTTOM_MID, 0, -4);
 }
 
-void ui_set_usage(int session_pct, int weekly_pct) {
-    if (session_pct < 0) session_pct = 0;
-    if (session_pct > 100) session_pct = 100;
-    if (weekly_pct < 0) weekly_pct = 0;
-    if (weekly_pct > 100) weekly_pct = 100;
-
-    lv_arc_set_value(arc_session, session_pct);
-    lv_arc_set_value(arc_weekly, weekly_pct);
-    lv_obj_set_style_arc_color(arc_session, level_color(session_pct),
-                               LV_PART_INDICATOR);
-    lv_obj_set_style_arc_color(arc_weekly, level_color(weekly_pct),
-                               LV_PART_INDICATOR);
-
-    lv_label_set_text_fmt(lbl_session_pct, "%d%%", session_pct);
-    lv_label_set_text_fmt(lbl_weekly_pct, "%d%%", weekly_pct);
+// ---- Formatacao da contagem de reset --------------------------------------
+static void fmt_reset(char *buf, size_t n, int secs) {
+    if (secs <= 0) {
+        snprintf(buf, n, "Reseta em breve");
+        return;
+    }
+    int d = secs / 86400;
+    int h = (secs % 86400) / 3600;
+    int m = (secs % 3600) / 60;
+    if (d >= 1)
+        snprintf(buf, n, "Reseta em %dd %dh", d, h);
+    else if (h >= 1)
+        snprintf(buf, n, "Reseta em %dh %dm", h, m);
+    else
+        snprintf(buf, n, "Reseta em %dm", m);
 }
 
-void ui_set_status(const char *text) {
-    if (lbl_status) lv_label_set_text(lbl_status, text);
+static void apply_card(Card *c, int pct, int reset_secs) {
+    lv_color_t col = level_color(pct);
+    lv_label_set_text_fmt(c->pct, "%d%%", pct);
+    lv_bar_set_value(c->bar, pct, LV_ANIM_OFF);
+    lv_obj_set_style_bg_color(c->bar, col, LV_PART_INDICATOR);
+    char buf[32];
+    fmt_reset(buf, sizeof(buf), reset_secs);
+    lv_label_set_text(c->reset, buf);
+}
+
+static int cur_session = 0, cur_weekly = 0;
+
+void ui_set_usage(int session, int weekly, int s_reset, int w_reset) {
+    session = session < 0 ? 0 : (session > 100 ? 100 : session);
+    weekly = weekly < 0 ? 0 : (weekly > 100 ? 100 : weekly);
+    cur_session = session;
+    cur_weekly = weekly;
+    base_sreset = s_reset;
+    base_wreset = w_reset;
+    recv_ms = millis();
+    apply_card(&card_session, session, s_reset);
+    apply_card(&card_weekly, weekly, w_reset);
 }
 
 void ui_set_connected(bool connected) {
     if (conn_dot)
         lv_obj_set_style_bg_color(conn_dot, connected ? COL_OK : COL_MUTED, 0);
-    if (lbl_status)
-        lv_label_set_text(lbl_status, connected ? "BLE: conectado"
-                                                : "BLE: aguardando...");
+    if (lbl_footer) {
+        lv_label_set_text(lbl_footer, connected ? "Conectado" : "Aguardando...");
+        lv_obj_set_style_text_color(lbl_footer,
+                                    connected ? COL_ACCENT : COL_MUTED, 0);
+    }
+}
+
+void ui_tick(void) {
+    // Atualiza a contagem regressiva ~1x por segundo.
+    uint32_t now = millis();
+    if (now - last_tick_ms < 1000) return;
+    last_tick_ms = now;
+    if (recv_ms == 0) return;  // ainda sem dados
+    int elapsed = (int)((now - recv_ms) / 1000);
+    char buf[32];
+    int s = base_sreset - elapsed;
+    fmt_reset(buf, sizeof(buf), s);
+    lv_label_set_text(card_session.reset, buf);
+    int w = base_wreset - elapsed;
+    fmt_reset(buf, sizeof(buf), w);
+    lv_label_set_text(card_weekly.reset, buf);
 }

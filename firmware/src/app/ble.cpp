@@ -12,6 +12,8 @@
 // escrita atomica no ESP32).
 static volatile int s_session = 0;
 static volatile int s_weekly = 0;
+static volatile int s_sreset = 0;   // segundos ate reset da sessao
+static volatile int s_wreset = 0;   // segundos ate reset da semana
 static volatile bool s_has_new = false;
 static volatile bool s_connected = false;
 
@@ -33,9 +35,12 @@ class DataCallbacks : public NimBLECharacteristicCallbacks {
         }
         if (session >= 0) s_session = session;
         if (weekly >= 0) s_weekly = weekly;
+        s_sreset = doc["s_reset"] | (int)s_sreset;
+        s_wreset = doc["w_reset"] | (int)s_wreset;
         s_has_new = true;
-        Serial.printf("[ble] recebido session=%d weekly=%d\n", (int)s_session,
-                      (int)s_weekly);
+        Serial.printf("[ble] recebido session=%d weekly=%d reset=%d/%d\n",
+                      (int)s_session, (int)s_weekly, (int)s_sreset,
+                      (int)s_wreset);
     }
 };
 
@@ -71,10 +76,12 @@ void ble_begin(void) {
     Serial.println("[ble] anunciando como 'TokenMeter'");
 }
 
-bool ble_get_usage(int *session, int *weekly) {
+bool ble_get_usage(int *session, int *weekly, int *s_reset, int *w_reset) {
     if (!s_has_new) return false;
     *session = s_session;
     *weekly = s_weekly;
+    *s_reset = s_sreset;
+    *w_reset = s_wreset;
     s_has_new = false;
     return true;
 }

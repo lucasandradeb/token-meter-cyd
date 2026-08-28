@@ -35,7 +35,7 @@ void setup() {
 
     ui_build();
     ble_begin();
-    ui_set_status("BLE: aguardando...");
+    ui_set_connected(false);
     Serial.println("UI pronta.");
 }
 
@@ -49,18 +49,19 @@ void loop() {
     }
 
     // Dados reais do BLE tem prioridade; ao chegar o 1o, para a animacao.
-    int s, w;
-    if (ble_get_usage(&s, &w)) {
+    int s, w, sr, wr;
+    if (ble_get_usage(&s, &w, &sr, &wr)) {
         got_real = true;
-        ui_set_usage(s, w);
+        ui_set_usage(s, w, sr, wr);
     } else if (!got_real) {
         // Ate o 1o dado real: onda de exemplo so para a tela nao ficar parada.
         uint32_t t = millis() / 50;
         int session = (t % 200 < 100) ? (t % 100) : (100 - (t % 100));
         int weekly = ((t / 2) % 100);
-        ui_set_usage(session, weekly);
+        ui_set_usage(session, weekly, 0, 0);
     }
 
+    ui_tick();          // atualiza a contagem regressiva de reset
     lv_timer_handler();
     delay(5);
 }

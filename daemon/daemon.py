@@ -102,16 +102,28 @@ def read_token() -> str | None:
 
 # ---- API ------------------------------------------------------------------
 def _pct(value: str | None) -> int | None:
+    # O header de utilizacao vem como fracao 0..1 (ex: 0.51 = 51%).
     if not value:
         return None
     try:
-        return max(0, min(100, round(float(value))))
+        return max(0, min(100, round(float(value) * 100)))
     except ValueError:
         return None
 
 
-async def poll_usage(token: str) -> tuple[int, int] | None:
-    """Retorna (session_pct, weekly_pct), ou None se o token expirou/erro."""
+def _reset_secs(value: str | None) -> int:
+    """Header de reset e um epoch (segundos). Retorna segundos ate o reset."""
+    if not value:
+        return 0
+    try:
+        return max(0, int(float(value) - time.time()))
+    except ValueError:
+        return 0
+
+
+async def poll_usage(token: str) -> dict | None:
+    """Retorna {session, weekly, s_reset, w_reset} ou None se token expirou/erro.
+    *_reset em segundos ate o proximo reset da janela."""
     headers = dict(API_HEADERS)
     headers["Authorization"] = f"Bearer {token}"
     try:
@@ -135,7 +147,12 @@ async def poll_usage(token: str) -> tuple[int, int] | None:
     if session is None and weekly is None:
         log(f"Sem headers de uso na resposta (HTTP {resp.status_code}).")
         return None
-    return (session or 0, weekly or 0)
+    return {
+        "session": session or 0,
+        "weekly": weekly or 0,
+        "s_reset": _reset_secs(h.get("anthropic-ratelimit-unified-5h-reset")),
+        "w_reset": _reset_secs(h.get("anthropic-ratelimit-unified-7d-reset")),
+    }
 
 
 # ---- BLE ------------------------------------------------------------------
@@ -163,12 +180,12 @@ async def run() -> None:
                         continue
                     usage = await poll_usage(token)
                     if usage:
-                        session, weekly = usage
-                        payload = json.dumps(
-                            {"session": session, "weekly": weekly}).encode()
+                        payload = json.dumps(usage).encode()
                         await client.write_gatt_char(CHR_UUID, payload,
                                                      response=False)
-                        log(f"Enviado: sessao={session}% semana={weekly}%")
+                        log(f"Enviado: sessao={usage['session']}% "
+                            f"semana={usage['weekly']}% "
+                            f"(reset {usage['s_reset']}s/{usage['w_reset']}s)")
                     await asyncio.sleep(POLL_INTERVAL)
         except Exception as e:  # reconecta em qualquer falha de BLE
             log(f"Conexao BLE perdida ({e}); tentando de novo...")
