@@ -44,7 +44,7 @@ void loop() {
     static bool last_conn = false;
     bool conn = ble_is_connected();
     if (conn != last_conn) {
-        ui_set_status(conn ? "BLE: conectado" : "BLE: desconectado");
+        ui_set_connected(conn);
         last_conn = conn;
     }
 

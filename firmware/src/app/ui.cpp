@@ -4,16 +4,26 @@
 // Paleta propria (identidade neutra, sem assets da Anthropic).
 #define COL_BG        lv_color_hex(0x0E1116)  // fundo escuro
 #define COL_CARD      lv_color_hex(0x1B2430)  // trilho dos arcos
-#define COL_SESSION   lv_color_hex(0xF2A33C)  // ambar  — uso da sessao (5h)
-#define COL_WEEKLY    lv_color_hex(0x3DB7A8)  // teal   — uso semanal
 #define COL_TEXT      lv_color_hex(0xE6EAF0)
 #define COL_MUTED     lv_color_hex(0x8A97A8)
+// Cores por nivel de uso (sinal glanceable).
+#define COL_OK        lv_color_hex(0x4CAF6E)  // verde  (<50%)
+#define COL_WARN      lv_color_hex(0xF2A33C)  // ambar  (<80%)
+#define COL_DANGER    lv_color_hex(0xE5534B)  // vermelho (>=80%)
+
+// Cor do indicador conforme o percentual de uso.
+static lv_color_t level_color(int pct) {
+    if (pct >= 80) return COL_DANGER;
+    if (pct >= 50) return COL_WARN;
+    return COL_OK;
+}
 
 static lv_obj_t *arc_session;
 static lv_obj_t *arc_weekly;
 static lv_obj_t *lbl_session_pct;
 static lv_obj_t *lbl_weekly_pct;
 static lv_obj_t *lbl_status;
+static lv_obj_t *conn_dot;    // indicador de conexao BLE (verde/cinza)
 static lv_obj_t *touch_dot;   // feedback visual do toque (confirma calibracao)
 
 // Move um ponto para onde o dedo esta, para conferir a calibracao em uso real.
@@ -80,10 +90,19 @@ void ui_build(void) {
     lv_label_set_text(title, "Claude Token Meter");
     lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 6);
 
-    // Dois arcos: sessao (esquerda) e semana (direita).
-    make_gauge(scr, -80, COL_SESSION, "Sessao (5h)", &arc_session,
+    // Bolinha de conexao BLE no canto superior direito.
+    conn_dot = lv_obj_create(scr);
+    lv_obj_set_size(conn_dot, 12, 12);
+    lv_obj_set_style_radius(conn_dot, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_border_width(conn_dot, 0, 0);
+    lv_obj_set_style_bg_color(conn_dot, COL_MUTED, 0);  // cinza = desconectado
+    lv_obj_align(conn_dot, LV_ALIGN_TOP_RIGHT, -8, 8);
+
+    // Dois arcos: sessao (esquerda) e semana (direita). A cor do indicador
+    // e definida dinamicamente por ui_set_usage conforme o nivel.
+    make_gauge(scr, -80, COL_OK, "Sessao (5h)", &arc_session,
                &lbl_session_pct);
-    make_gauge(scr, 80, COL_WEEKLY, "Semana", &arc_weekly, &lbl_weekly_pct);
+    make_gauge(scr, 80, COL_OK, "Semana", &arc_weekly, &lbl_weekly_pct);
 
     // Status de conexao no rodape.
     lbl_status = lv_label_create(scr);
@@ -111,6 +130,10 @@ void ui_set_usage(int session_pct, int weekly_pct) {
 
     lv_arc_set_value(arc_session, session_pct);
     lv_arc_set_value(arc_weekly, weekly_pct);
+    lv_obj_set_style_arc_color(arc_session, level_color(session_pct),
+                               LV_PART_INDICATOR);
+    lv_obj_set_style_arc_color(arc_weekly, level_color(weekly_pct),
+                               LV_PART_INDICATOR);
 
     lv_label_set_text_fmt(lbl_session_pct, "%d%%", session_pct);
     lv_label_set_text_fmt(lbl_weekly_pct, "%d%%", weekly_pct);
@@ -118,4 +141,12 @@ void ui_set_usage(int session_pct, int weekly_pct) {
 
 void ui_set_status(const char *text) {
     if (lbl_status) lv_label_set_text(lbl_status, text);
+}
+
+void ui_set_connected(bool connected) {
+    if (conn_dot)
+        lv_obj_set_style_bg_color(conn_dot, connected ? COL_OK : COL_MUTED, 0);
+    if (lbl_status)
+        lv_label_set_text(lbl_status, connected ? "BLE: conectado"
+                                                : "BLE: aguardando...");
 }
