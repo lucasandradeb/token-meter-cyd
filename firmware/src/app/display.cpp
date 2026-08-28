@@ -19,14 +19,13 @@ static uint8_t lvgl_buf[SCREEN_W * LVGL_BUF_LINES * 2];
 // Fonte de tempo do LVGL 9: retorna millis desde o boot.
 static uint32_t lvgl_tick_cb(void) { return millis(); }
 
-// Envia o pedaco renderizado pelo LVGL para o painel. O LVGL 9 entrega
-// RGB565 em ordem nativa; o Arduino_GFX espera big-endian, entao trocamos os
-// bytes antes de desenhar.
+// Envia o pedaco renderizado pelo LVGL para o painel. Na ESP32 (little-endian)
+// o Arduino_GFX le o buffer RGB565 na ordem nativa do LVGL, entao NAO trocamos
+// os bytes (o swap deixava as cores erradas).
 static void lvgl_flush_cb(lv_display_t *disp, const lv_area_t *area,
                           uint8_t *px_map) {
     uint32_t w = area->x2 - area->x1 + 1;
     uint32_t h = area->y2 - area->y1 + 1;
-    lv_draw_sw_rgb565_swap(px_map, w * h);
     gfx->draw16bitRGBBitmap(area->x1, area->y1, (uint16_t *)px_map, w, h);
     lv_display_flush_ready(disp);
 }
