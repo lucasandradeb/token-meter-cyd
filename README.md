@@ -173,13 +173,19 @@ Por padrão a placa mostra um mascote pixel-art estático (arte própria, no
 python tools/gif_to_c.py caminho/do/seu.gif --size 72 --frames 24
 ```
 
-Depois adicione `-DUSE_GIF_MASCOT` em `build_flags` do env `app` no
-`platformio.ini` e regrave. Sem PSRAM, mantenha `--size` pequeno (72 usa ~20 KB
-de RAM de decode).
+Depois é só **regravar** — o `ui.cpp` detecta o gif automaticamente (via
+`__has_include`), sem mexer em flag nenhuma.
 
-> **Direitos autorais:** use apenas GIFs que você tem o direito de usar. O
-> arquivo gerado é gitignored e **não** entra no repositório. Não distribua
-> personagens/marcas de terceiros num repo público.
+**Coloque o GIF que você quiser** — respeitando os limites da placa:
+- **Tamanho**: a ESP32 não tem PSRAM. O decoder aloca `lado*lado*4` bytes de
+  RAM (72×72 ≈ 20 KB). Passe de ~96×96 e provavelmente não cabe.
+- **Frames/processando**: menos frames = menos flash e CPU. `--frames 20` é um
+  bom teto; GIFs muito longos deixam a animação pesada.
+- O conversor **redimensiona** o gif pra você (`--size`).
+
+> O arquivo gerado (`mascot_gif.c/.h`) é **gitignored** e não entra no
+> repositório — cada um usa o seu localmente. Num repo público, não inclua
+> personagens/marcas de terceiros.
 
 ## Estrutura do repositório
 

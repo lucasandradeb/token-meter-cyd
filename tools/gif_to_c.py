@@ -74,9 +74,18 @@ def main() -> None:
         "};",
     ]
     out.write_text("\n".join(lines) + "\n")
-    print(f"OK -> {out} ({a.size}x{a.size}, {len(frames)} frames, "
+
+    # Header para auto-deteccao pelo ui.cpp (__has_include "mascot_gif.h").
+    hdr = out.with_suffix(".h")
+    hdr.write_text(
+        "// GERADO por tools/gif_to_c.py — NAO commitar (gitignored).\n"
+        '#include "lvgl.h"\n'
+        "extern const lv_image_dsc_t mascot_gif_dsc;\n")
+
+    print(f"OK -> {out} e {hdr.name} "
+          f"({a.size}x{a.size}, {len(frames)} frames, "
           f"{len(data)} bytes de flash, ~{ram} bytes de RAM de decode).")
-    print("Agora compile o env app com -DUSE_GIF_MASCOT.")
+    print("Basta regravar: o ui.cpp detecta o gif automaticamente.")
 
 
 if __name__ == "__main__":

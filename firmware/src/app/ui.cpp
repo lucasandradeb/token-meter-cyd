@@ -2,10 +2,14 @@
 #include <Arduino.h>
 #include <lvgl.h>
 
-// Mascote animado opcional: gere src/app/mascot_gif.c com tools/gif_to_c.py e
-// compile com -DUSE_GIF_MASCOT. Sem isso, usa o mascote pixel-art estatico.
-#ifdef USE_GIF_MASCOT
-extern const lv_image_dsc_t mascot_gif_dsc;
+// Mascote animado opcional: gere mascot_gif.c/.h com tools/gif_to_c.py. Se os
+// arquivos existirem (local, gitignored), a placa usa o gif automaticamente;
+// senao, mostra o mascote pixel-art estatico. Nada a commitar.
+#if defined(__has_include)
+#  if __has_include("mascot_gif.h")
+#    include "mascot_gif.h"
+#    define HAVE_GIF_MASCOT
+#  endif
 #endif
 
 // ---- Paleta (identidade propria, tons quentes) ----------------------------
@@ -79,7 +83,7 @@ static void make_static_mascot(lv_obj_t *parent) {
 }
 
 static void make_mascot(lv_obj_t *parent) {
-#ifdef USE_GIF_MASCOT
+#ifdef HAVE_GIF_MASCOT
     lv_obj_t *gif = lv_gif_create(parent);
     lv_gif_set_src(gif, &mascot_gif_dsc);
     lv_obj_align(gif, LV_ALIGN_TOP_MID, 0, 4);
