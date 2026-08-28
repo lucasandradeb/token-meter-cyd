@@ -163,15 +163,25 @@ espetada numa fonte USB (5V).
 > Resumo: perto do Mac (ou do host), funciona plugando na tomada. Longe de
 > qualquer host, mostra a interface mas sem uso atualizado.
 
-## Mascote (pixel-art)
+## Imagem do topo
 
-O topo mostra um pixel-art estático — uma companhia de aventureiros, arte
-própria desenhada direto no `ui.cpp` (sprites char-map em `SP_*` + `PARTY[]`).
-Editar = trocar os caracteres dos sprites (`.` = transparente; cores em
-`party_color()`). Estático = sem piscar e cabe em largura cheia sem PSRAM.
+O topo mostra uma imagem estática. Por padrão o repo traz uma arte própria
+(`firmware/src/app/party_img.c`). Você pode trocar por **qualquer imagem sua**:
 
-> GIF animado foi descartado: sem PSRAM o decoder aloca `lado*lado*4` de RAM e a
-> animação pisca. Pixel-art estático é o caminho estável nesta placa.
+```bash
+python tools/img_to_c.py caminho/da/sua-imagem.png   # PNG/WEBP/JPG/GIF
+```
+
+Gera `party_img_user.c/.h` (gitignored). É só **regravar** — o `ui.cpp` detecta
+o arquivo local (via `__has_include`) e usa no lugar da arte padrão.
+
+Limites da placa (sem PSRAM): o conversor **redimensiona** pra caber em ~300×62;
+imagem estática não pisca (ao contrário de GIF animado, que foi descartado por
+não caber suave nesta placa).
+
+> O arquivo gerado é **gitignored** e não entra no repositório — cada um usa a
+> sua imagem localmente. Num repo público, não inclua arte/personagens de
+> terceiros.
 
 ## Estrutura do repositório
 

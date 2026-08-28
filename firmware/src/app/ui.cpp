@@ -35,14 +35,20 @@ static uint32_t recv_ms = 0;
 static uint32_t last_tick_ms = 0;
 static int cur_session = 0, cur_weekly = 0;
 
-// ---- Silhueta da companhia (imagem ARGB8888, arte propria, uma cor so) ------
-// Gerada em scratchpad/gen_party.py e embutida em party_img.c. Vetor
-// rasterizado com anti-aliasing = bordas suaves, sem o serrilhado do pixel-art.
-#include "party_img.h"
+// ---- Imagem do topo -------------------------------------------------------
+// Se existir uma imagem local (party_img_user.h, gerada por tools/img_to_c.py,
+// gitignored), usa ela; senao, a arte padrao do repo (party_img.c, propria).
+#if defined(__has_include) && __has_include("party_img_user.h")
+#  include "party_img_user.h"
+#  define TOP_IMG (&party_img_user_dsc)
+#else
+#  include "party_img.h"
+#  define TOP_IMG (&party_img_dsc)
+#endif
 
 static void make_mascot(lv_obj_t *parent) {
     lv_obj_t *img = lv_image_create(parent);
-    lv_image_set_src(img, &party_img_dsc);
+    lv_image_set_src(img, TOP_IMG);
     lv_obj_align(img, LV_ALIGN_TOP_MID, 0, 8);
 }
 
