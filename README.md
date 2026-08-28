@@ -1,120 +1,118 @@
 # Token Meter (ESP32 CYD)
 
-Medidor físico do seu uso de tokens do **Claude Code**, rodando numa placa
-ESP32 de 2.8" (a "CYD"). Um daemon no seu Mac lê o uso real da conta e empurra
-por Bluetooth para o dispositivo, que mostra o percentual da janela de uso em
-tempo quase-real.
+A physical meter for your **Claude Code** token usage, running on a 2.8" ESP32
+board (the "CYD"). A daemon on your Mac reads your account's real usage and
+pushes it over Bluetooth to the device, which shows your usage-window percentage
+in near real time.
 
-Projeto **inspirado no** [Clawdmeter](https://github.com/HermannBjorgvin/Clawdmeter)
-de Hermann Björgvin. Reaproveita a ideia central (ler o uso dos headers de
-rate-limit da API e transmitir por BLE), mas é código próprio, escrito para uma
-placa diferente, e **não** redistribui nenhum asset proprietário (fontes ou
-mascote da Anthropic). Licença MIT. Veja [Créditos](#créditos).
+**Inspired by** [Clawdmeter](https://github.com/HermannBjorgvin/Clawdmeter) by
+Hermann Björgvin. It reuses the core idea (reading usage from the API's
+rate-limit headers and transmitting it over BLE), but it's original code written
+for a different board and it does **not** redistribute any proprietary assets
+(Anthropic fonts or the Clawd mascot). MIT licensed. See [Credits](#credits).
 
 ---
 
-## Como funciona
+## How it works
 
 ```
 ┌─────────────── Mac ───────────────┐        ┌──────── ESP32 CYD ────────┐
-│ daemon Python                      │        │ firmware (PlatformIO)     │
-│  1. lê o token OAuth do Keychain   │  BLE   │  - servidor GATT (NimBLE) │
-│  2. faz uma chamada mínima à API   │ ─────▶ │  - faz parse do JSON      │
-│  3. extrai o uso dos headers de    │  GATT  │  - LVGL: barras de %      │
-│     rate-limit da resposta         │        │  - touch XPT2046          │
-│  4. empurra um JSON por BLE        │        │                           │
+│ Python daemon                      │        │ firmware (PlatformIO)     │
+│  1. reads the OAuth token          │  BLE   │  - GATT server (NimBLE)   │
+│  2. makes a minimal API call       │ ─────▶ │  - parses the JSON        │
+│  3. extracts usage from the        │  GATT  │  - LVGL: % cards          │
+│     response rate-limit headers    │        │  - XPT2046 touch          │
+│  4. pushes a JSON over BLE         │        │                           │
 └────────────────────────────────────┘        └───────────────────────────┘
 ```
 
-1. O daemon lê o token OAuth do Claude do **Keychain do macOS**.
-2. Faz uma chamada mínima a `api.anthropic.com/v1/messages`.
-3. O uso vem direto dos headers de resposta
-   (`anthropic-ratelimit-unified-5h-utilization` e afins) — não gasta tokens de
-   verdade para medir.
-4. Envia `{ session_pct, weekly_pct }` por uma característica BLE GATT.
-5. O ESP32 recebe e atualiza a tela.
+1. The daemon reads the Claude OAuth token from the **macOS Keychain**.
+2. It makes a minimal call to `api.anthropic.com/v1/messages`.
+3. Usage comes straight from the response headers
+   (`anthropic-ratelimit-unified-5h-utilization` and friends) — it doesn't burn
+   real tokens to measure.
+4. It sends `{ session_pct, weekly_pct }` over a BLE GATT characteristic.
+5. The ESP32 receives it and updates the screen.
 
-O ESP32 **não** fala com a API nem tem seu token — todo segredo fica no Mac.
+The ESP32 **never** talks to the API and never holds your token — all secrets
+stay on the Mac.
 
 ---
 
 ## Hardware
 
-Placa **ESP32-2432S028** ("Cheap Yellow Display" / CYD):
+**ESP32-2432S028** board ("Cheap Yellow Display" / CYD):
 
-| Componente | Detalhe |
+| Component | Detail |
 |---|---|
-| SoC | ESP32-WROOM-32 (dual-core 240 MHz, 520 KB RAM, sem PSRAM) |
+| SoC | ESP32-WROOM-32 (dual-core 240 MHz, 520 KB RAM, no PSRAM) |
 | Flash | 4 MB |
-| Display | 2.8" 320×240 SPI — ILI9341 ou ST7789 |
-| Touch | XPT2046 resistivo (SPI próprio) |
-| USB | CH340C → aparece como `/dev/cu.usbserial-*` no Mac |
-| Rádio | Wi-Fi + Bluetooth (BLE 4.2) |
+| Display | 2.8" 320×240 SPI — ILI9341 or ST7789 |
+| Touch | XPT2046 resistive (its own SPI bus) |
+| USB | CH340C → shows up as `/dev/cu.usbserial-*` on the Mac |
+| Radio | Wi-Fi + Bluetooth (BLE 4.2) |
 
-### Pinagem usada
+### Pinout used
 
 ```
 Display (SPI):   SCK=IO14  MOSI=IO13  MISO=IO12  CS=IO15  DC=IO2  BL=IO21
 Touch (XPT2046): CLK=IO25  MOSI=IO32  MISO=IO39  CS=IO33  IRQ=IO36
 ```
 
-> **Display e touch estão em barramentos SPI separados.** O touch usa uma
-> instância SPI própria — é um detalhe da CYD que costuma travar quem começa.
+> **Display and touch are on separate SPI buses.** The touch controller uses its
+> own SPI instance — a CYD detail that trips up many beginners.
 
 ---
 
-## Requisitos
+## Requirements
 
-- **VSCode** com a extensão **PlatformIO IDE** (recomendada automaticamente ao
-  abrir o repo).
-- **Python 3.11+** para o daemon.
-- Um Mac (o daemon lê o Keychain do macOS). Linux/Windows exigiriam adaptar a
-  leitura de credenciais.
+- **VSCode** with the **PlatformIO IDE** extension (auto-recommended when you
+  open the repo).
+- **Python 3.11+** for the daemon.
+- A Mac (the daemon reads the macOS Keychain). Linux/Windows would need the
+  credential reading adapted — the daemon already supports the Linux file path
+  (`~/.claude/.credentials.json`).
 
 ---
 
-## Começando
+## Getting started
 
 ### 1. Firmware
 
-```bash
-# Abra a pasta do repo no VSCode. A extensão PlatformIO é sugerida
-# automaticamente; instale-a.
-```
+Open the repo folder in VSCode; it suggests the PlatformIO extension — install
+it. Then, from the PlatformIO bottom bar:
 
-No VSCode, na barra inferior do PlatformIO:
+- **Select the environment** `bringup` (hardware test) or `app` (full firmware).
+- **Build** (check icon) compiles.
+- **Upload** (→ arrow) flashes the board. The `/dev/cu.usbserial-*` port is
+  auto-detected.
+- **Serial Monitor** (plug icon) shows logs at 115200 baud.
 
-- **Selecione o ambiente** `bringup` (teste de hardware) ou `app` (firmware
-  completo).
-- **Build** (ícone de check) compila.
-- **Upload** (seta →) grava na placa. A porta `/dev/cu.usbserial-*` é
-  detectada sozinha.
-- **Serial Monitor** (tomada) mostra os logs a 115200 baud.
-
-Também dá para usar o terminal:
+You can also use the terminal:
 
 ```bash
 cd firmware
-pio run -e bringup            # compila
-pio run -e bringup -t upload  # grava
+pio run -e bringup            # compile
+pio run -e bringup -t upload  # flash
 pio device monitor            # logs
 ```
 
-### 2. Bring-up (faça isto primeiro)
+### 2. Bring-up (do this first)
 
-O ambiente `bringup` é um teste isolado de hardware. Ao gravar, você deve ver:
+The `bringup` environment is an isolated hardware test. After flashing you
+should see:
 
-- Barras coloridas + o texto "CYD bring-up OK" no display.
-- Ao tocar a tela, um ponto amarelo aparece e as coordenadas cruas do touch
-  saem no Serial Monitor.
+- Color bars + the text "CYD bring-up OK" on the display.
+- Touching the screen shows a yellow dot and prints raw touch coordinates on the
+  Serial Monitor.
 
-**Se a tela ficar branca ou apagada:** o driver está errado. Abra
-`firmware/src/bringup/main.cpp` e troque `DISPLAY_DRIVER` de `0` (ILI9341) para
-`1` (ST7789). Cores invertidas: ajuste o parâmetro `ips`.
+**If the screen is white or blank:** the driver is wrong. Open
+`firmware/src/bringup/main.cpp` and switch `DISPLAY_DRIVER` from `0` (ILI9341) to
+`1` (ST7789). Inverted colors: adjust the `ips` parameter.
 
 ### 3. Daemon (Mac)
 
-Lê seu uso do Claude e transmite por BLE para a placa.
+Reads your Claude usage and transmits it to the board over BLE.
 
 ```bash
 cd daemon
@@ -123,77 +121,78 @@ pip install -r requirements.txt
 python daemon.py
 ```
 
-Pré-requisitos:
-- Estar logado no **Claude Code** (o daemon lê o token OAuth do Keychain,
-  serviço `Claude Code-credentials`).
-- Conceder permissão de **Bluetooth** ao terminal/Python na primeira execução
-  (macOS pede em Ajustes > Privacidade e Segurança > Bluetooth).
+Prerequisites:
+- Be logged into **Claude Code** (the daemon reads the OAuth token from the
+  Keychain, service `Claude Code-credentials`).
+- Grant **Bluetooth** permission to the terminal/Python on first run (macOS asks
+  under Settings > Privacy & Security > Bluetooth).
 
-O daemon procura o dispositivo `TokenMeter`, conecta e envia
-`{"session":NN,"weekly":NN}` a cada 30s. O token nunca sai da máquina nem vai
-para log.
+The daemon looks for the `TokenMeter` device, connects, and sends
+`{"session":NN,"weekly":NN}` every 30s. The token never leaves the machine and
+is never logged.
 
-Ver [daemon/README.md](daemon/README.md) para rodar em segundo plano
-(autostart via launchd).
+See [daemon/README.md](daemon/README.md) to run it in the background
+(autostart via launchd on macOS, systemd on Linux).
 
 ---
 
-## Ligando e levando pra outro lugar
+## Powering it and taking it elsewhere
 
-A placa é alimentada por **micro-USB**. Não tem bateria — precisa estar
-espetada numa fonte USB (5V).
+The board is powered over **micro-USB**. It has no battery — it must be plugged
+into a USB power source (5V).
 
-**Em casa, perto do Mac:**
-1. Ligue a placa em qualquer carregador USB de parede (ou no próprio Mac).
-2. Deixe o daemon rodando no Mac (ele sobe sozinho no login via launchd).
-3. Estando **no alcance do Bluetooth** (~10 m, mesmo ambiente), a placa mostra
-   o uso ao vivo: rodapé "Conectado" e os cards atualizando a cada ~30s.
+**At home, near the Mac:**
+1. Plug the board into any USB wall charger (or the Mac itself).
+2. Keep the daemon running on the Mac (it starts on login via launchd).
+3. While **within Bluetooth range** (~10 m, same room), the board shows live
+   usage: "Connected" footer and cards updating every ~30s.
 
-**Guardou tudo e levou pro escritório / outro lugar:**
-- A placa **liga e mostra a UI**, mas fica em **"Aguardando..."** (sem números
-  novos) porque não há fonte de dados por perto.
-- Para mostrar dados fora de casa, você precisa de **uma fonte de dados no
-  alcance BLE**:
-  - levar o **Mac** junto (com o daemon rodando), ou
-  - deixar um **host sempre-ligado** no local (Raspberry Pi/mini-PC com o
-    daemon — veja `daemon/README.md`).
-- Bluetooth é **ponto-a-ponto e de curto alcance**: a placa só recebe do
-  host que estiver perto. Não funciona "pela internet" sozinha.
+**Packed up and taken to the office / elsewhere:**
+- The board **powers on and shows the UI**, but stays on **"Waiting…"** (no
+  fresh numbers) because there's no data source nearby.
+- To show data away from home you need **a data source within BLE range**:
+  - bring the **Mac** along (with the daemon running), or
+  - leave an **always-on host** at the location (Raspberry Pi/mini-PC running the
+    daemon — see `daemon/README.md`).
+- Bluetooth is **point-to-point and short-range**: the board only receives from
+  the host that's nearby. It does not work "over the internet" on its own.
 
-> Resumo: perto do Mac (ou do host), funciona plugando na tomada. Longe de
-> qualquer host, mostra a interface mas sem uso atualizado.
+> In short: near the Mac (or the host), just plug it into power. Away from any
+> host, it shows the UI but without updated usage.
 
-## Imagem do topo
+## Top image
 
-O topo mostra uma imagem estática. Por padrão o repo traz uma arte própria
-(`firmware/src/app/party_img.c`). Você pode trocar por **qualquer imagem sua**:
+The top shows a static image. By default the repo ships original art
+(`firmware/src/app/party_img.c`). You can swap in **any image of your own**:
 
 ```bash
-python tools/img_to_c.py caminho/da/sua-imagem.png   # PNG/WEBP/JPG/GIF
+python tools/img_to_c.py path/to/your-image.png   # PNG/WEBP/JPG/GIF
 ```
 
-Gera `party_img_user.c/.h` (gitignored). É só **regravar** — o `ui.cpp` detecta
-o arquivo local (via `__has_include`) e usa no lugar da arte padrão.
+This generates `party_img_user.c/.h` (gitignored). Just **re-flash** — `ui.cpp`
+detects the local file (via `__has_include`) and uses it instead of the default
+art.
 
-Limites da placa (sem PSRAM): o conversor **redimensiona** pra caber em ~300×62;
-imagem estática não pisca (ao contrário de GIF animado, que foi descartado por
-não caber suave nesta placa).
+Board limits (no PSRAM): the converter **resizes** the image to fit ~300×62; a
+static image doesn't flicker (unlike an animated GIF, which was dropped because
+it can't run smoothly on this board).
 
-> O arquivo gerado é **gitignored** e não entra no repositório — cada um usa a
-> sua imagem localmente. Num repo público, não inclua arte/personagens de
-> terceiros.
+> The generated file is **gitignored** and never enters the repository — each
+> person uses their own image locally. In a public repo, do not include
+> third-party art/characters.
 
-## Estrutura do repositório
+## Repository layout
 
 ```
 esp32/
-├── firmware/            # projeto PlatformIO
-│   ├── platformio.ini   # ambientes bringup e app
+├── firmware/            # PlatformIO project
+│   ├── platformio.ini   # bringup and app environments
 │   └── src/
-│       ├── bringup/     # teste isolado de display + touch (passo 1)
-│       └── app/         # firmware completo (LVGL + BLE) — em construção
-├── daemon/              # daemon Python do Mac — em construção
-├── docs/specs/          # documento de design
+│       ├── bringup/     # isolated display + touch test (step 1)
+│       └── app/         # full firmware (LVGL + BLE)
+├── daemon/              # Mac/Linux Python daemon (+ launchd/systemd units)
+├── tools/               # img_to_c.py (custom top image)
+├── docs/specs/          # design document
 └── README.md
 ```
 
@@ -201,27 +200,28 @@ esp32/
 
 ## Roadmap
 
-- [x] Identificar a placa e mapear a pinagem
-- [x] Bring-up: teste de display + touch
-- [x] UI LVGL com dados de exemplo
-- [x] Calibração do touch XPT2046 (persistida na NVS)
-- [x] Servidor BLE GATT no ESP32
-- [x] Daemon do Mac (Keychain + API + BLE)
-- [x] Autostart do daemon (launchd no Mac / systemd no Linux)
-- [x] Polimento visual (cor por nível, mascote próprio, contagem de reset)
-- [x] Host sempre-ligado (Raspberry Pi/Linux) para autonomia do Mac
-- [ ] (bloqueado) Login OAuth dedicado na própria placa — atestação/captcha da Anthropic impede fluxo headless
+- [x] Identify the board and map the pinout
+- [x] Bring-up: display + touch test
+- [x] LVGL UI with sample data
+- [x] XPT2046 touch calibration (persisted in NVS)
+- [x] BLE GATT server on the ESP32
+- [x] Mac daemon (Keychain + API + BLE)
+- [x] Daemon autostart (launchd on macOS / systemd on Linux)
+- [x] Visual polish (level-based color, custom image, reset countdown)
+- [x] Always-on host (Raspberry Pi/Linux) for Mac independence
+- [ ] (blocked) Dedicated OAuth login on the board itself — Anthropic's
+  attestation/captcha prevents a headless flow
 
 ---
 
-## Créditos
+## Credits
 
-- Inspirado no [Clawdmeter](https://github.com/HermannBjorgvin/Clawdmeter) de
-  Hermann Björgvin — origem da arquitetura (daemon lê o uso dos headers de
-  rate-limit e transmite por BLE).
-- Este projeto **não** usa as fontes proprietárias da Anthropic nem o mascote
-  Clawd; usa fontes livres e visual próprio.
+- Inspired by [Clawdmeter](https://github.com/HermannBjorgvin/Clawdmeter) by
+  Hermann Björgvin — origin of the architecture (a daemon reads usage from the
+  rate-limit headers and transmits it over BLE).
+- This project does **not** use Anthropic's proprietary fonts or the Clawd
+  mascot; it uses free fonts and its own visuals.
 
-## Licença
+## License
 
-[MIT](LICENSE) — apenas código próprio.
+[MIT](LICENSE) — original code only.
