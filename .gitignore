@@ -1,0 +1,22 @@
+# PlatformIO
+.pio/
+firmware/.pio/
+bringup/.pio/
+
+# Python daemon
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets / credenciais (nunca commitar token OAuth)
+*.env
+.env
+secrets.json
+
+# macOS
+.DS_Store
+
+# VSCode (manter .vscode/extensions.json se quiser recomendar PlatformIO)
+.vscode/*
+!.vscode/extensions.json
