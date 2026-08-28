@@ -11,6 +11,10 @@ rate-limit headers and transmitting it over BLE), but it's original code written
 for a different board and it does **not** redistribute any proprietary assets
 (Anthropic fonts or the Clawd mascot). MIT licensed. See [Credits](#credits).
 
+> **Have the same board?** Follow the **[step-by-step setup guide](docs/SETUP.md)**
+> to run this project and reach the same working state (flash the firmware, run
+> the daemon, calibrate touch).
+
 ---
 
 ## How it works
