@@ -14,6 +14,22 @@ static lv_obj_t *arc_weekly;
 static lv_obj_t *lbl_session_pct;
 static lv_obj_t *lbl_weekly_pct;
 static lv_obj_t *lbl_status;
+static lv_obj_t *touch_dot;   // feedback visual do toque (confirma calibracao)
+
+// Move um ponto para onde o dedo esta, para conferir a calibracao em uso real.
+static void screen_touch_cb(lv_event_t *e) {
+    lv_event_code_t code = lv_event_get_code(e);
+    if (code == LV_EVENT_PRESSING) {
+        lv_indev_t *indev = lv_indev_active();
+        if (!indev) return;
+        lv_point_t p;
+        lv_indev_get_point(indev, &p);
+        lv_obj_set_pos(touch_dot, p.x - 6, p.y - 6);
+        lv_obj_clear_flag(touch_dot, LV_OBJ_FLAG_HIDDEN);
+    } else if (code == LV_EVENT_RELEASED) {
+        lv_obj_add_flag(touch_dot, LV_OBJ_FLAG_HIDDEN);
+    }
+}
 
 // Cria um arco de progresso com rotulo de % no centro e uma legenda embaixo.
 static void make_gauge(lv_obj_t *parent, int x_offset, lv_color_t color,
@@ -55,6 +71,7 @@ void ui_build(void) {
     lv_obj_t *scr = lv_screen_active();
     lv_obj_set_style_bg_color(scr, COL_BG, 0);
     lv_obj_set_style_bg_opa(scr, LV_OPA_COVER, 0);
+    lv_obj_add_flag(scr, LV_OBJ_FLAG_CLICKABLE);  // recebe eventos de toque
 
     // Titulo.
     lv_obj_t *title = lv_label_create(scr);
@@ -74,6 +91,16 @@ void ui_build(void) {
     lv_obj_set_style_text_color(lbl_status, COL_MUTED, 0);
     lv_label_set_text(lbl_status, "BLE: aguardando...");
     lv_obj_align(lbl_status, LV_ALIGN_BOTTOM_MID, 0, -4);
+
+    // Ponto de feedback do toque (confirma calibracao). Escondido por padrao.
+    touch_dot = lv_obj_create(scr);
+    lv_obj_set_size(touch_dot, 12, 12);
+    lv_obj_set_style_radius(touch_dot, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(touch_dot, COL_TEXT, 0);
+    lv_obj_set_style_border_width(touch_dot, 0, 0);
+    lv_obj_add_flag(touch_dot, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_event_cb(scr, screen_touch_cb, LV_EVENT_PRESSING, NULL);
+    lv_obj_add_event_cb(scr, screen_touch_cb, LV_EVENT_RELEASED, NULL);
 }
 
 void ui_set_usage(int session_pct, int weekly_pct) {
