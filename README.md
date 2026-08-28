@@ -138,6 +138,49 @@ Ver [daemon/README.md](daemon/README.md) para rodar em segundo plano
 
 ---
 
+## Ligando e levando pra outro lugar
+
+A placa é alimentada por **micro-USB**. Não tem bateria — precisa estar
+espetada numa fonte USB (5V).
+
+**Em casa, perto do Mac:**
+1. Ligue a placa em qualquer carregador USB de parede (ou no próprio Mac).
+2. Deixe o daemon rodando no Mac (ele sobe sozinho no login via launchd).
+3. Estando **no alcance do Bluetooth** (~10 m, mesmo ambiente), a placa mostra
+   o uso ao vivo: rodapé "Conectado" e os cards atualizando a cada ~30s.
+
+**Guardou tudo e levou pro escritório / outro lugar:**
+- A placa **liga e mostra a UI**, mas fica em **"Aguardando..."** (sem números
+  novos) porque não há fonte de dados por perto.
+- Para mostrar dados fora de casa, você precisa de **uma fonte de dados no
+  alcance BLE**:
+  - levar o **Mac** junto (com o daemon rodando), ou
+  - deixar um **host sempre-ligado** no local (Raspberry Pi/mini-PC com o
+    daemon — veja `daemon/README.md`).
+- Bluetooth é **ponto-a-ponto e de curto alcance**: a placa só recebe do
+  host que estiver perto. Não funciona "pela internet" sozinha.
+
+> Resumo: perto do Mac (ou do host), funciona plugando na tomada. Longe de
+> qualquer host, mostra a interface mas sem uso atualizado.
+
+## Mascote animado (GIF) — opcional
+
+Por padrão a placa mostra um mascote pixel-art estático (arte própria, no
+`ui.cpp`). Dá para usar um GIF animado no topo:
+
+```bash
+# gera firmware/src/app/mascot_gif.c a partir de um GIF SEU (redimensiona)
+python tools/gif_to_c.py caminho/do/seu.gif --size 72 --frames 24
+```
+
+Depois adicione `-DUSE_GIF_MASCOT` em `build_flags` do env `app` no
+`platformio.ini` e regrave. Sem PSRAM, mantenha `--size` pequeno (72 usa ~20 KB
+de RAM de decode).
+
+> **Direitos autorais:** use apenas GIFs que você tem o direito de usar. O
+> arquivo gerado é gitignored e **não** entra no repositório. Não distribua
+> personagens/marcas de terceiros num repo público.
+
 ## Estrutura do repositório
 
 ```

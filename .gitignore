@@ -18,6 +18,9 @@ daemon/.device_credentials.json
 .device_login_state.json
 daemon/.device_login_state.json
 
+# Mascote GIF gerado localmente (pode conter asset de terceiros; nao commitar)
+firmware/src/app/mascot_gif.c
+
 # macOS
 .DS_Store
 

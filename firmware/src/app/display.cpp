@@ -13,7 +13,7 @@ static Arduino_GFX *gfx =
 
 // Buffer parcial do LVGL, medido em BYTES (RGB565 = 2 bytes/pixel). Sem
 // PSRAM, mantemos pequeno: 24 linhas de largura cheia = 320*24*2 = 15360 B.
-static const uint32_t LVGL_BUF_LINES = 24;
+static const uint32_t LVGL_BUF_LINES = 16;
 static uint8_t lvgl_buf[SCREEN_W * LVGL_BUF_LINES * 2];
 
 // Fonte de tempo do LVGL 9: retorna millis desde o boot.
