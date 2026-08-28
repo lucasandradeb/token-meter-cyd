@@ -50,7 +50,7 @@
 Arduino_DataBus *bus = new Arduino_ESP32SPI(TFT_DC, TFT_CS, TFT_SCK, TFT_MOSI, TFT_MISO);
 
 #if DISPLAY_DRIVER == 0
-Arduino_GFX *gfx = new Arduino_ILI9341(bus, TFT_RST, 1 /*rotation landscape*/, false /*ips*/);
+Arduino_GFX *gfx = new Arduino_ILI9341(bus, TFT_RST, 1 /*rotation landscape*/, true /*ips: painel desta CYD vem com cores invertidas*/);
 const char *DRIVER_NAME = "ILI9341";
 #else
 Arduino_GFX *gfx = new Arduino_ST7789(bus, TFT_RST, 1 /*rotation landscape*/, true /*ips*/);
