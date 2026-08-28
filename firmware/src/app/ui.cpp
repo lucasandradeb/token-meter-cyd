@@ -38,21 +38,22 @@ static uint32_t recv_ms = 0;
 static uint32_t last_tick_ms = 0;
 
 // ---- Mascote pixel-art (desenho original, nao o Clawd) --------------------
-// 'o' contorno, 'b' corpo, 'e' olho, 'm' boca, ' ' transparente. 12x10.
+// 'o' contorno, 'b' corpo, 'e' olho, 'm' boca, ' ' transparente. 12x11.
 static const char *MASCOT[] = {
+    "  o      o  ",  // antenas
+    "  o      o  ",
     "  oooooooo  ",
     " obbbbbbbbo ",
     "obbbbbbbbbbo",
-    "obbeebbeebbo",
+    "obbeebbeebbo",  // olhos
     "obbeebbeebbo",
     "obbbbbbbbbbo",
-    "obbbmmmmbbbo",
-    "obbbbbbbbbbo",
+    "obbbmmmmbbbo",  // boca
     " obbbbbbbbo ",
-    "  o o  o o  ",
+    "  oo    oo  ",  // pes
 };
-static const int MASCOT_W = 12, MASCOT_H = 10, MASCOT_S = 3;
-static uint8_t mascot_buf[12 * 3 * 10 * 3 * 4];  // ARGB8888 36x30
+static const int MASCOT_W = 12, MASCOT_H = 11, MASCOT_S = 3;
+static uint8_t mascot_buf[12 * 3 * 11 * 3 * 4];  // ARGB8888 36x33
 
 static lv_color_t mascot_color(char c) {
     switch (c) {
