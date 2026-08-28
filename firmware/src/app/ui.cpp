@@ -2,16 +2,6 @@
 #include <Arduino.h>
 #include <lvgl.h>
 
-// Mascote animado opcional: gere mascot_gif.c/.h com tools/gif_to_c.py. Se os
-// arquivos existirem (local, gitignored), a placa usa o gif automaticamente;
-// senao, mostra o mascote pixel-art estatico. Nada a commitar.
-#if defined(__has_include)
-#  if __has_include("mascot_gif.h")
-#    include "mascot_gif.h"
-#    define HAVE_GIF_MASCOT
-#  endif
-#endif
-
 // ---- Paleta (identidade propria, tons quentes) ----------------------------
 #define COL_BG      lv_color_hex(0x0D0F0C)
 #define COL_CARD    lv_color_hex(0x181C18)
@@ -45,51 +35,93 @@ static uint32_t recv_ms = 0;
 static uint32_t last_tick_ms = 0;
 static int cur_session = 0, cur_weekly = 0;
 
-// ---- Mascote pixel-art estatico (desenho original, nao o Clawd) -----------
-static const char *MASCOT[] = {
-    "  o      o  ", "  o      o  ", "  oooooooo  ", " obbbbbbbbo ",
-    "obbbbbbbbbbo", "obbeebbeebbo", "obbeebbeebbo", "obbbbbbbbbbo",
-    "obbbmmmmbbbo", " obbbbbbbbo ", "  oo    oo  ",
-};
-static const int MASCOT_W = 12, MASCOT_H = 11, MASCOT_S = 4;  // 48x44
-static uint8_t mascot_buf[12 * 4 * 11 * 4 * 4];
-
-static lv_color_t mascot_color(char c) {
+// ---- Pixel-art estatico: uma companhia de aventureiros (arte original) -----
+// Cada figura e um sprite 12 de largura; altura varia (alinhadas por baixo).
+// '.' = transparente. Cores em party_color().
+static lv_color_t party_color(char c) {
     switch (c) {
-        case 'o': return lv_color_hex(0x5A2E17);
-        case 'b': return COL_ACCENT;
-        case 'e': return lv_color_hex(0x1A0E07);
-        case 'm': return lv_color_hex(0x3A1D0E);
-        default:  return COL_BG;
+        case 'o': return lv_color_hex(0x171310);  // contorno
+        case 'S': return lv_color_hex(0xE0A878);  // pele
+        case 'W': return lv_color_hex(0xEDE9DF);  // barba/branco
+        case 'G': return lv_color_hex(0xAEB3B8);  // aco/robe cinza
+        case 'H': return lv_color_hex(0x2E3A66);  // chapeu (azul escuro)
+        case 'R': return lv_color_hex(0xB23A3A);  // vermelho
+        case 'B': return lv_color_hex(0x33569E);  // azul
+        case 'N': return lv_color_hex(0x3E7D48);  // verde
+        case 'K': return lv_color_hex(0x6B4A2B);  // marrom
+        case 'O': return lv_color_hex(0xC8712E);  // barba ruiva
+        default:  return lv_color_hex(0x000000);
     }
 }
 
-static void make_static_mascot(lv_obj_t *parent) {
-    lv_obj_t *canvas = lv_canvas_create(parent);
-    lv_canvas_set_buffer(canvas, mascot_buf, MASCOT_W * MASCOT_S,
-                         MASCOT_H * MASCOT_S, LV_COLOR_FORMAT_ARGB8888);
-    lv_obj_align(canvas, LV_ALIGN_TOP_MID, 0, 14);
-    lv_canvas_fill_bg(canvas, COL_BG, LV_OPA_TRANSP);
-    for (int y = 0; y < MASCOT_H; y++)
-        for (int x = 0; x < MASCOT_W; x++) {
-            char c = MASCOT[y][x];
-            if (c == ' ') continue;
-            lv_color_t col = mascot_color(c);
-            for (int dy = 0; dy < MASCOT_S; dy++)
-                for (int dx = 0; dx < MASCOT_S; dx++)
-                    lv_canvas_set_px(canvas, x * MASCOT_S + dx,
-                                     y * MASCOT_S + dy, col, LV_OPA_COVER);
-        }
-}
+static const char *SP_WIZARD[] = {
+    "....HH......", "...HHHH.....", "..HHHHHH....", ".HHHHHHHH...",
+    "...SSSS.....", "...SWWS.....", "...WWWW.....", "..WWWWWW....",
+    "..GGGGGG....", "..GGGGGG....", ".GGGGGGGG...", ".GGGGGGGG...",
+    ".GGGGGGGG...", ".GGGGGGGG...", ".GGGGGGGG...", "..oo..oo....",
+};
+static const char *SP_WARRIOR[] = {
+    "...GGGG.....", "..GGGGGG....", "..GGSSGG....", "..GSSSSG....",
+    "...SSSS.....", "..RRRRRR....", ".RRRRRRRR...", ".RRGGGGRR...",
+    ".RRGGGGRR...", ".RRRRRRRR...", "..RRRRRR....", "..RR..RR....",
+    "..GG..GG....", "..oo..oo....",
+};
+static const char *SP_RANGER[] = {
+    "....NN......", "...NNNN.....", "..NNNNNN....", "..NNSSNN....",
+    "..NSSSSN....", "..NNNNNN....", ".NNNNNNNN...", ".NNNNNNNN...",
+    ".NNKKKKNN...", ".NNNNNNNN...", "..NNNNNN....", "..NN..NN....",
+    "..KK..KK....", "..oo..oo....",
+};
+static const char *SP_DWARF[] = {
+    "..GGGGGG....", ".GGGGGGGG...", "..SSSSSS....", "..OOOOOO....",
+    ".OOOOOOOO...", ".OOOOOOOO...", ".KKKKKKKK...", ".KKKKKKKK...",
+    ".KKKKKKKK...", "..KKKKKK....", "..KK..KK....", "..oo..oo....",
+};
+static const char *SP_HALFLING_B[] = {
+    "...KKKK.....", "..KKKKKK....", "..KSSSSK....", "...SSSS.....",
+    "..BBBBBB....", ".BBBBBBBB...", ".BBBBBBBB...", "..BBBBBB....",
+    "..BB..BB....", "..KK..KK....", "..oo..oo....",
+};
+static const char *SP_HALFLING_N[] = {
+    "...KKKK.....", "..KKKKKK....", "..KSSSSK....", "...SSSS.....",
+    "..NNNNNN....", ".NNNNNNNN...", ".NNNNNNNN...", "..NNNNNN....",
+    "..NN..NN....", "..KK..KK....", "..oo..oo....",
+};
+
+struct Sprite { const char *const *rows; int h; };
+static const Sprite PARTY[] = {
+    {SP_WIZARD, 16}, {SP_WARRIOR, 14}, {SP_RANGER, 14},
+    {SP_DWARF, 12},  {SP_HALFLING_B, 11}, {SP_HALFLING_N, 11},
+};
+static const int PARTY_N = 6;
+static const int SPRITE_W = 12;
+
+static uint8_t *party_buf = nullptr;   // canvas no heap (largura cheia)
 
 static void make_mascot(lv_obj_t *parent) {
-#ifdef HAVE_GIF_MASCOT
-    lv_obj_t *gif = lv_gif_create(parent);
-    lv_gif_set_src(gif, &mascot_gif_dsc);
-    lv_obj_align(gif, LV_ALIGN_TOP_MID, 0, 4);
-#else
-    make_static_mascot(parent);
-#endif
+    const int CW = 300, CH = 48, S = 3;
+    party_buf = (uint8_t *)malloc((size_t)CW * CH * 4);
+    if (!party_buf) return;
+    lv_obj_t *canvas = lv_canvas_create(parent);
+    lv_canvas_set_buffer(canvas, party_buf, CW, CH, LV_COLOR_FORMAT_ARGB8888);
+    lv_obj_align(canvas, LV_ALIGN_TOP_MID, 0, 14);
+    lv_canvas_fill_bg(canvas, COL_BG, LV_OPA_TRANSP);
+
+    const int xs[PARTY_N] = {8, 56, 104, 152, 200, 248};
+    for (int i = 0; i < PARTY_N; i++) {
+        const Sprite &sp = PARTY[i];
+        int y0 = CH - sp.h * S;   // alinha por baixo (baseline comum)
+        for (int r = 0; r < sp.h; r++)
+            for (int c = 0; c < SPRITE_W; c++) {
+                char ch = sp.rows[r][c];
+                if (ch == '.' || ch == ' ') continue;
+                lv_color_t col = party_color(ch);
+                for (int dy = 0; dy < S; dy++)
+                    for (int dx = 0; dx < S; dx++)
+                        lv_canvas_set_px(canvas, xs[i] + c * S + dx,
+                                         y0 + r * S + dy, col, LV_OPA_COVER);
+            }
+    }
 }
 
 // ---- Card (session = grande; weekly = compacto ~50%) ----------------------

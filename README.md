@@ -163,29 +163,15 @@ espetada numa fonte USB (5V).
 > Resumo: perto do Mac (ou do host), funciona plugando na tomada. Longe de
 > qualquer host, mostra a interface mas sem uso atualizado.
 
-## Mascote animado (GIF) — opcional
+## Mascote (pixel-art)
 
-Por padrão a placa mostra um mascote pixel-art estático (arte própria, no
-`ui.cpp`). Dá para usar um GIF animado no topo:
+O topo mostra um pixel-art estático — uma companhia de aventureiros, arte
+própria desenhada direto no `ui.cpp` (sprites char-map em `SP_*` + `PARTY[]`).
+Editar = trocar os caracteres dos sprites (`.` = transparente; cores em
+`party_color()`). Estático = sem piscar e cabe em largura cheia sem PSRAM.
 
-```bash
-# gera firmware/src/app/mascot_gif.c a partir de um GIF SEU (redimensiona)
-python tools/gif_to_c.py caminho/do/seu.gif --size 72 --frames 24
-```
-
-Depois é só **regravar** — o `ui.cpp` detecta o gif automaticamente (via
-`__has_include`), sem mexer em flag nenhuma.
-
-**Coloque o GIF que você quiser** — respeitando os limites da placa:
-- **Tamanho**: a ESP32 não tem PSRAM. O decoder aloca `lado*lado*4` bytes de
-  RAM (72×72 ≈ 20 KB). Passe de ~96×96 e provavelmente não cabe.
-- **Frames/processando**: menos frames = menos flash e CPU. `--frames 20` é um
-  bom teto; GIFs muito longos deixam a animação pesada.
-- O conversor **redimensiona** o gif pra você (`--size`).
-
-> O arquivo gerado (`mascot_gif.c/.h`) é **gitignored** e não entra no
-> repositório — cada um usa o seu localmente. Num repo público, não inclua
-> personagens/marcas de terceiros.
+> GIF animado foi descartado: sem PSRAM o decoder aloca `lado*lado*4` de RAM e a
+> animação pisca. Pixel-art estático é o caminho estável nesta placa.
 
 ## Estrutura do repositório
 
