@@ -11,10 +11,11 @@ static Arduino_DataBus *bus =
 static Arduino_GFX *gfx =
     new Arduino_ILI9341(bus, TFT_RST, 1 /*landscape*/, true /*ips*/);
 
-// Buffer parcial do LVGL, medido em BYTES (RGB565 = 2 bytes/pixel). Sem
-// PSRAM, mantemos pequeno: 24 linhas de largura cheia = 320*24*2 = 15360 B.
-static const uint32_t LVGL_BUF_LINES = 16;
-static uint8_t lvgl_buf[SCREEN_W * LVGL_BUF_LINES * 2];
+// Buffer parcial do LVGL, medido em BYTES (RGB565 = 2 bytes/pixel).
+// Alocado no HEAP (nao estatico): arrays estaticos grandes estouram o
+// dram0_0_seg, mas o heap usa o resto da DRAM. Um buffer alto (cobre a
+// altura do mascote/gif) desenha cada frame de uma vez, sem piscar.
+static const uint32_t LVGL_BUF_LINES = 80;   // 320*80*2 = 51200 B no heap
 
 // Fonte de tempo do LVGL 9: retorna millis desde o boot.
 static uint32_t lvgl_tick_cb(void) { return millis(); }
@@ -44,7 +45,11 @@ void display_begin(void) {
 
     lv_display_t *disp = lv_display_create(SCREEN_W, SCREEN_H);
     lv_display_set_flush_cb(disp, lvgl_flush_cb);
-    lv_display_set_buffers(disp, lvgl_buf, NULL, sizeof(lvgl_buf),
+    // Buffer no heap (evita o teto do dram0_0_seg e cabe alto o bastante para
+    // desenhar o mascote/gif de uma vez, sem tearing).
+    size_t buf_bytes = SCREEN_W * LVGL_BUF_LINES * 2;
+    uint8_t *lvgl_buf = (uint8_t *)malloc(buf_bytes);
+    lv_display_set_buffers(disp, lvgl_buf, NULL, buf_bytes,
                            LV_DISPLAY_RENDER_MODE_PARTIAL);
 }
 
