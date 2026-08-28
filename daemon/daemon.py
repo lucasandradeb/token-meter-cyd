@@ -23,6 +23,7 @@ import re
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 import httpx
 from bleak import BleakClient, BleakScanner
@@ -82,7 +83,19 @@ def _decode_keychain_blob(raw: str) -> str:
     return raw
 
 
-def read_token() -> str | None:
+def _read_token_file() -> str | None:
+    """Le o token do arquivo de credenciais (Linux/Raspberry Pi e afins)."""
+    cred = Path.home() / ".claude" / ".credentials.json"
+    if not cred.exists():
+        return None
+    try:
+        return _extract_access_token(cred.read_text())
+    except OSError as e:
+        log(f"Erro lendo {cred}: {e}")
+        return None
+
+
+def _read_token_keychain() -> str | None:
     """Le o token OAuth do Keychain do macOS, ou None."""
     try:
         out = subprocess.run(
@@ -98,6 +111,21 @@ def read_token() -> str | None:
         log(f"Erro de acesso ao Keychain: {e}")
         return None
     return _extract_access_token(_decode_keychain_blob(out.stdout))
+
+
+def read_token() -> str | None:
+    """Le o token OAuth do Claude Code, ou None.
+
+    Ordem: arquivo ~/.claude/.credentials.json (Linux/Pi) e, se ausente, o
+    Keychain do macOS. Assim o mesmo daemon roda no Mac ou num host Linux
+    sempre-ligado."""
+    tok = _read_token_file()
+    if tok:
+        return tok
+    if sys.platform == "darwin":
+        return _read_token_keychain()
+    log("Sem credenciais: rode 'claude login' nesta maquina.")
+    return None
 
 
 # ---- API ------------------------------------------------------------------

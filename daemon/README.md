@@ -36,6 +36,43 @@ launchctl unload ~/Library/LaunchAgents/com.tokenmeter.daemon.plist
 > Ajustes > Privacidade e Segurança > Bluetooth. Sob launchd, quem precisa da
 > permissão é o binário Python do venv.
 
+## Máquina sempre-ligada (Raspberry Pi / Linux) — autonomia do Mac
+
+Para o medidor funcionar sem o seu Mac, rode o daemon num host sempre-ligado
+(Raspberry Pi, mini-PC, servidor). O host precisa de Bluetooth (o Pi tem
+nativo) e do seu proprio login do Claude Code.
+
+1. **Login do Claude Code no host** (cliente oficial, passa pela atestacao):
+   ```bash
+   # instale o Claude Code no host e faca login
+   claude login
+   ```
+   No Linux o token fica em `~/.claude/.credentials.json` — o daemon le dali
+   automaticamente (nao usa o Keychain do Mac).
+
+2. **Instale o daemon**:
+   ```bash
+   git clone <seu-repo> && cd esp32/daemon
+   python3 -m venv venv && source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+
+3. **Autostart via systemd (user service)**:
+   - Edite `tokenmeter.service`: troque `__PYTHON__` e `__DAEMON__` pelos
+     caminhos absolutos (ex: `/home/pi/esp32/daemon/venv/bin/python` e
+     `/home/pi/esp32/daemon/daemon.py`).
+   ```bash
+   mkdir -p ~/.config/systemd/user
+   cp tokenmeter.service ~/.config/systemd/user/
+   systemctl --user daemon-reload
+   systemctl --user enable --now tokenmeter.service
+   loginctl enable-linger $USER   # roda mesmo sem sessao aberta
+   systemctl --user status tokenmeter.service
+   ```
+
+O Pi mantem seu proprio token do Claude (renova sozinho via Claude Code) e
+transmite por BLE para a placa. A placa fica so na tomada.
+
 ## Configuração
 
 Ajuste no topo de `daemon.py`:

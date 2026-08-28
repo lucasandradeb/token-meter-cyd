@@ -15,6 +15,8 @@ __pycache__/
 secrets.json
 .device_credentials.json
 daemon/.device_credentials.json
+.device_login_state.json
+daemon/.device_login_state.json
 
 # macOS
 .DS_Store

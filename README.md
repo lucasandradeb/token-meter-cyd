@@ -162,8 +162,10 @@ esp32/
 - [x] Calibração do touch XPT2046 (persistida na NVS)
 - [x] Servidor BLE GATT no ESP32
 - [x] Daemon do Mac (Keychain + API + BLE)
-- [ ] Autostart do daemon (launchd)
-- [ ] Polimento visual (fontes/paleta próprios)
+- [x] Autostart do daemon (launchd no Mac / systemd no Linux)
+- [x] Polimento visual (cor por nível, mascote próprio, contagem de reset)
+- [x] Host sempre-ligado (Raspberry Pi/Linux) para autonomia do Mac
+- [ ] (bloqueado) Login OAuth dedicado na própria placa — atestação/captcha da Anthropic impede fluxo headless
 
 ---
 

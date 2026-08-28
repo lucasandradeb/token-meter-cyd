@@ -1,0 +1,14 @@
+[Unit]
+Description=Token Meter daemon (le uso do Claude e transmite por BLE)
+After=bluetooth.target network-online.target
+Wants=network-online.target
+
+[Service]
+# Troque __PYTHON__ e __DAEMON__ pelos caminhos absolutos no host (Pi).
+# Ex: /home/pi/esp32/daemon/venv/bin/python  e  /home/pi/esp32/daemon/daemon.py
+ExecStart=__PYTHON__ __DAEMON__
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
