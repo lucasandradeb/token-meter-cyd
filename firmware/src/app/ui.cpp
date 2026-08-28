@@ -35,93 +35,15 @@ static uint32_t recv_ms = 0;
 static uint32_t last_tick_ms = 0;
 static int cur_session = 0, cur_weekly = 0;
 
-// ---- Pixel-art estatico: uma companhia de aventureiros (arte original) -----
-// Cada figura e um sprite 12 de largura; altura varia (alinhadas por baixo).
-// '.' = transparente. Cores em party_color().
-static lv_color_t party_color(char c) {
-    switch (c) {
-        case 'o': return lv_color_hex(0x171310);  // contorno
-        case 'S': return lv_color_hex(0xE0A878);  // pele
-        case 'W': return lv_color_hex(0xEDE9DF);  // barba/branco
-        case 'G': return lv_color_hex(0xAEB3B8);  // aco/robe cinza
-        case 'H': return lv_color_hex(0x2E3A66);  // chapeu (azul escuro)
-        case 'R': return lv_color_hex(0xB23A3A);  // vermelho
-        case 'B': return lv_color_hex(0x33569E);  // azul
-        case 'N': return lv_color_hex(0x3E7D48);  // verde
-        case 'K': return lv_color_hex(0x6B4A2B);  // marrom
-        case 'O': return lv_color_hex(0xC8712E);  // barba ruiva
-        default:  return lv_color_hex(0x000000);
-    }
-}
-
-static const char *SP_WIZARD[] = {
-    "....HH......", "...HHHH.....", "..HHHHHH....", ".HHHHHHHH...",
-    "...SSSS.....", "...SWWS.....", "...WWWW.....", "..WWWWWW....",
-    "..GGGGGG....", "..GGGGGG....", ".GGGGGGGG...", ".GGGGGGGG...",
-    ".GGGGGGGG...", ".GGGGGGGG...", ".GGGGGGGG...", "..oo..oo....",
-};
-static const char *SP_WARRIOR[] = {
-    "...GGGG.....", "..GGGGGG....", "..GGSSGG....", "..GSSSSG....",
-    "...SSSS.....", "..RRRRRR....", ".RRRRRRRR...", ".RRGGGGRR...",
-    ".RRGGGGRR...", ".RRRRRRRR...", "..RRRRRR....", "..RR..RR....",
-    "..GG..GG....", "..oo..oo....",
-};
-static const char *SP_RANGER[] = {
-    "....NN......", "...NNNN.....", "..NNNNNN....", "..NNSSNN....",
-    "..NSSSSN....", "..NNNNNN....", ".NNNNNNNN...", ".NNNNNNNN...",
-    ".NNKKKKNN...", ".NNNNNNNN...", "..NNNNNN....", "..NN..NN....",
-    "..KK..KK....", "..oo..oo....",
-};
-static const char *SP_DWARF[] = {
-    "..GGGGGG....", ".GGGGGGGG...", "..SSSSSS....", "..OOOOOO....",
-    ".OOOOOOOO...", ".OOOOOOOO...", ".KKKKKKKK...", ".KKKKKKKK...",
-    ".KKKKKKKK...", "..KKKKKK....", "..KK..KK....", "..oo..oo....",
-};
-static const char *SP_HALFLING_B[] = {
-    "...KKKK.....", "..KKKKKK....", "..KSSSSK....", "...SSSS.....",
-    "..BBBBBB....", ".BBBBBBBB...", ".BBBBBBBB...", "..BBBBBB....",
-    "..BB..BB....", "..KK..KK....", "..oo..oo....",
-};
-static const char *SP_HALFLING_N[] = {
-    "...KKKK.....", "..KKKKKK....", "..KSSSSK....", "...SSSS.....",
-    "..NNNNNN....", ".NNNNNNNN...", ".NNNNNNNN...", "..NNNNNN....",
-    "..NN..NN....", "..KK..KK....", "..oo..oo....",
-};
-
-struct Sprite { const char *const *rows; int h; };
-static const Sprite PARTY[] = {
-    {SP_WIZARD, 16}, {SP_WARRIOR, 14}, {SP_RANGER, 14},
-    {SP_DWARF, 12},  {SP_HALFLING_B, 11}, {SP_HALFLING_N, 11},
-};
-static const int PARTY_N = 6;
-static const int SPRITE_W = 12;
-
-static uint8_t *party_buf = nullptr;   // canvas no heap (largura cheia)
+// ---- Silhueta da companhia (imagem ARGB8888, arte propria, uma cor so) ------
+// Gerada em scratchpad/gen_party.py e embutida em party_img.c. Vetor
+// rasterizado com anti-aliasing = bordas suaves, sem o serrilhado do pixel-art.
+#include "party_img.h"
 
 static void make_mascot(lv_obj_t *parent) {
-    const int CW = 300, CH = 48, S = 3;
-    party_buf = (uint8_t *)malloc((size_t)CW * CH * 4);
-    if (!party_buf) return;
-    lv_obj_t *canvas = lv_canvas_create(parent);
-    lv_canvas_set_buffer(canvas, party_buf, CW, CH, LV_COLOR_FORMAT_ARGB8888);
-    lv_obj_align(canvas, LV_ALIGN_TOP_MID, 0, 14);
-    lv_canvas_fill_bg(canvas, COL_BG, LV_OPA_TRANSP);
-
-    const int xs[PARTY_N] = {8, 56, 104, 152, 200, 248};
-    for (int i = 0; i < PARTY_N; i++) {
-        const Sprite &sp = PARTY[i];
-        int y0 = CH - sp.h * S;   // alinha por baixo (baseline comum)
-        for (int r = 0; r < sp.h; r++)
-            for (int c = 0; c < SPRITE_W; c++) {
-                char ch = sp.rows[r][c];
-                if (ch == '.' || ch == ' ') continue;
-                lv_color_t col = party_color(ch);
-                for (int dy = 0; dy < S; dy++)
-                    for (int dx = 0; dx < S; dx++)
-                        lv_canvas_set_px(canvas, xs[i] + c * S + dx,
-                                         y0 + r * S + dy, col, LV_OPA_COVER);
-            }
-    }
+    lv_obj_t *img = lv_image_create(parent);
+    lv_image_set_src(img, &party_img_dsc);
+    lv_obj_align(img, LV_ALIGN_TOP_MID, 0, 8);
 }
 
 // ---- Card (session = grande; weekly = compacto ~50%) ----------------------
