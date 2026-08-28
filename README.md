@@ -114,8 +114,27 @@ O ambiente `bringup` é um teste isolado de hardware. Ao gravar, você deve ver:
 
 ### 3. Daemon (Mac)
 
-> Em construção — adicionado após o firmware completo. Vai ler o Keychain,
-> consultar a API e transmitir por BLE.
+Lê seu uso do Claude e transmite por BLE para a placa.
+
+```bash
+cd daemon
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
+python daemon.py
+```
+
+Pré-requisitos:
+- Estar logado no **Claude Code** (o daemon lê o token OAuth do Keychain,
+  serviço `Claude Code-credentials`).
+- Conceder permissão de **Bluetooth** ao terminal/Python na primeira execução
+  (macOS pede em Ajustes > Privacidade e Segurança > Bluetooth).
+
+O daemon procura o dispositivo `TokenMeter`, conecta e envia
+`{"session":NN,"weekly":NN}` a cada 30s. O token nunca sai da máquina nem vai
+para log.
+
+Ver [daemon/README.md](daemon/README.md) para rodar em segundo plano
+(autostart via launchd).
 
 ---
 
@@ -139,11 +158,12 @@ esp32/
 
 - [x] Identificar a placa e mapear a pinagem
 - [x] Bring-up: teste de display + touch
-- [ ] UI LVGL com dados de exemplo
-- [ ] Calibração do touch XPT2046
-- [ ] Servidor BLE GATT no ESP32
-- [ ] Daemon do Mac (Keychain + API + BLE)
-- [ ] Visual próprio (fontes livres, paleta)
+- [x] UI LVGL com dados de exemplo
+- [x] Calibração do touch XPT2046 (persistida na NVS)
+- [x] Servidor BLE GATT no ESP32
+- [x] Daemon do Mac (Keychain + API + BLE)
+- [ ] Autostart do daemon (launchd)
+- [ ] Polimento visual (fontes/paleta próprios)
 
 ---
 

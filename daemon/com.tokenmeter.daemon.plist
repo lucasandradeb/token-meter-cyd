@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.tokenmeter.daemon</string>
+
+    <!-- Troque __PYTHON__ e __DAEMON__ pelos caminhos absolutos do seu venv. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>__PYTHON__</string>
+        <string>__DAEMON__</string>
+    </array>
+
+    <!-- Sobe no login e reinicia se cair. -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/tokenmeter.out</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/tokenmeter.err</string>
+</dict>
+</plist>
