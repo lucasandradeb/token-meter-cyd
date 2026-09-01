@@ -1,5 +1,10 @@
 # Token Meter (ESP32 CYD)
 
+<img width="768" height="1024" alt="4B44F515-25BF-470E-8776-BF0180EF9F16_1_105_c" src="https://github.com/user-attachments/assets/695562f9-f988-4552-9582-7a68bc4cde76" />
+
+<img width="768" height="1024" alt="D0E43760-DEDE-4DFA-ADE3-9D8AC3DD76A0_1_105_c" src="https://github.com/user-attachments/assets/e0af2e53-7403-4b06-ba26-efc0e1d63326" />
+
+
 A physical meter for your **Claude Code** token usage, running on a 2.8" ESP32
 board (the "CYD"). A daemon on your Mac reads your account's real usage and
 pushes it over Bluetooth to the device, which shows your usage-window percentage
