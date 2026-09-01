@@ -16,6 +16,13 @@ rate-limit headers and transmitting it over BLE), but it's original code written
 for a different board and it does **not** redistribute any proprietary assets
 (Anthropic fonts or the Clawd mascot). MIT licensed. See [Credits](#credits).
 
+<p align="center">
+  <img src="docs/media/token-meter-front.jpeg" alt="Token Meter running on the CYD: 23% session, 67% weekly, Connected" width="420">
+</p>
+
+<p align="center"><em>Live view: session and weekly usage, reset countdowns, and a
+<code>Connected</code> footer while the daemon is in range.</em></p>
+
 > **Have the same board?** Follow the **[step-by-step setup guide](docs/SETUP.md)**
 > to run this project and reach the same working state (flash the firmware, run
 > the daemon, calibrate touch).
@@ -52,6 +59,13 @@ stay on the Mac.
 
 **ESP32-2432S028** board ("Cheap Yellow Display" / CYD):
 
+<p align="center">
+  <img src="docs/media/token-meter-board.jpeg" alt="Back of the CYD board, showing the ESP32-2432S028 silkscreen and the orange PCB" width="420">
+</p>
+
+<p align="center"><em>The board itself — the <code>ESP32-2432S028</code> silkscreen (and
+the classic orange PCB) is how you confirm you have the right one.</em></p>
+
 | Component | Detail |
 |---|---|
 | SoC | ESP32-WROOM-32 (dual-core 240 MHz, 520 KB RAM, no PSRAM) |
@@ -70,6 +84,21 @@ Touch (XPT2046): CLK=IO25  MOSI=IO32  MISO=IO39  CS=IO33  IRQ=IO36
 
 > **Display and touch are on separate SPI buses.** The touch controller uses its
 > own SPI instance — a CYD detail that trips up many beginners.
+
+### Where to buy
+
+The CYD is a common, cheap dev board — search for **`ESP32-2432S028`** on any
+marketplace (roughly US$8–15). Make sure it's the **2.8"** variant with the
+resistive touch panel (this is the one this firmware is pinned for).
+
+- **Brazil (the exact unit used here):**
+  [Módulo ESP32 com Tela de Toque TFT LCD 2.8" — Mercado Livre](https://www.mercadolivre.com.br/modulo-desenvolvimento-esp32-com-tela-de-toque-tft-lcd-28/p/MLB64969790)
+- **International:** AliExpress / Amazon — search `ESP32-2432S028` or
+  `Cheap Yellow Display 2.8`.
+
+> There are CYD variants with different display drivers (ILI9341 vs ST7789). If
+> colors or the panel look wrong after flashing, see the driver switch in
+> [Bring-up](#2-bring-up-do-this-first).
 
 ---
 
@@ -201,7 +230,9 @@ esp32/
 │       └── app/         # full firmware (LVGL + BLE)
 ├── daemon/              # Mac/Linux Python daemon (+ launchd/systemd units)
 ├── tools/               # img_to_c.py (custom top image)
-├── docs/specs/          # design document
+├── docs/
+│   ├── media/           # product photos used in this README
+│   └── specs/           # design document
 └── README.md
 ```
 
@@ -222,6 +253,12 @@ esp32/
   attestation/captcha prevents a headless flow
 
 ---
+
+## Contributing
+
+Contributions are welcome — bug reports, docs fixes, features, or just telling me
+you got it running. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup and
+guidelines.
 
 ## Credits
 
