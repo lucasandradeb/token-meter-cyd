@@ -12,8 +12,10 @@
 // escrita atomica no ESP32).
 static volatile int s_session = 0;
 static volatile int s_weekly = 0;
-static volatile int s_sreset = 0;   // segundos ate reset da sessao
-static volatile int s_wreset = 0;   // segundos ate reset da semana
+// Horario de reset ja formatado pelo Mac (ex: "15:42", "qua 09:00"); a placa
+// nao tem relogio. Escrito na task BLE, lido no loop sob o flag s_has_new.
+static char s_sreset_str[16] = "--";
+static char s_wreset_str[16] = "--";
 static volatile bool s_has_new = false;
 static volatile bool s_connected = false;
 static volatile bool s_auth_ok = true;   // false quando o Mac avisa auth=0
@@ -45,12 +47,14 @@ class DataCallbacks : public NimBLECharacteristicCallbacks {
         s_auth_ok = true;   // chegou uso valido => token voltou
         if (session >= 0) s_session = session;
         if (weekly >= 0) s_weekly = weekly;
-        s_sreset = doc["s_reset"] | (int)s_sreset;
-        s_wreset = doc["w_reset"] | (int)s_wreset;
+        const char *sr = doc["s_reset_str"] | "--";
+        const char *wr = doc["w_reset_str"] | "--";
+        snprintf(s_sreset_str, sizeof(s_sreset_str), "%s", sr);
+        snprintf(s_wreset_str, sizeof(s_wreset_str), "%s", wr);
         s_has_new = true;
-        Serial.printf("[ble] recebido session=%d weekly=%d reset=%d/%d\n",
-                      (int)s_session, (int)s_weekly, (int)s_sreset,
-                      (int)s_wreset);
+        Serial.printf("[ble] recebido session=%d weekly=%d reset=%s/%s\n",
+                      (int)s_session, (int)s_weekly, s_sreset_str,
+                      s_wreset_str);
     }
 };
 
@@ -86,12 +90,13 @@ void ble_begin(void) {
     Serial.println("[ble] anunciando como 'TokenMeter'");
 }
 
-bool ble_get_usage(int *session, int *weekly, int *s_reset, int *w_reset) {
+bool ble_get_usage(int *session, int *weekly, char *s_reset_str,
+                   char *w_reset_str, size_t n) {
     if (!s_has_new) return false;
     *session = s_session;
     *weekly = s_weekly;
-    *s_reset = s_sreset;
-    *w_reset = s_wreset;
+    snprintf(s_reset_str, n, "%s", s_sreset_str);
+    snprintf(w_reset_str, n, "%s", s_wreset_str);
     s_has_new = false;
     return true;
 }
