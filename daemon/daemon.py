@@ -47,6 +47,10 @@ DEVICE_NAME = "TokenMeter"
 CHR_UUID = "c0de0002-feed-4d61-9a11-0123456789ab"
 POLL_INTERVAL = 30.0   # segundos entre leituras
 
+# Sentinela: token expirado (HTTP 401/403). Distinto de None (erro transitorio
+# de rede) para o run() poder avisar a placa em vez de so ficar em silencio.
+AUTH_EXPIRED = object()
+
 
 def log(msg: str) -> None:
     print(f"[{time.strftime('%H:%M:%S')}] {msg}", flush=True)
@@ -149,9 +153,11 @@ def _reset_secs(value: str | None) -> int:
         return 0
 
 
-async def poll_usage(token: str) -> dict | None:
-    """Retorna {session, weekly, s_reset, w_reset} ou None se token expirou/erro.
-    *_reset em segundos ate o proximo reset da janela."""
+async def poll_usage(token: str) -> "dict | object | None":
+    """Retorna {session, weekly, s_reset, w_reset} com o uso atual.
+
+    Retorna AUTH_EXPIRED se o token expirou (HTTP 401/403) e None em erro
+    transitorio (rede, sem headers). *_reset em segundos ate o proximo reset."""
     headers = dict(API_HEADERS)
     headers["Authorization"] = f"Bearer {token}"
     try:
@@ -164,7 +170,7 @@ async def poll_usage(token: str) -> dict | None:
     if resp.status_code in (401, 403):
         log("Token expirado/invalido. Rode um comando no Claude Code para "
             "renovar e tente de novo.")
-        return None
+        return AUTH_EXPIRED
 
     h = resp.headers
     session = _pct(h.get("anthropic-ratelimit-unified-5h-utilization"))
@@ -207,7 +213,12 @@ async def run() -> None:
                         await asyncio.sleep(POLL_INTERVAL)
                         continue
                     usage = await poll_usage(token)
-                    if usage:
+                    if usage is AUTH_EXPIRED:
+                        # Avisa a placa: ela troca a animacao por "AUTH EXPIRADO".
+                        await client.write_gatt_char(CHR_UUID, b'{"auth":0}',
+                                                     response=False)
+                        log("Avisado a placa: token expirado (auth=0).")
+                    elif usage:
                         payload = json.dumps(usage).encode()
                         await client.write_gatt_char(CHR_UUID, payload,
                                                      response=False)

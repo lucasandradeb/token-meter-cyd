@@ -15,3 +15,7 @@ bool ble_get_usage(int *session, int *weekly, int *s_reset, int *w_reset);
 
 // true enquanto houver um cliente (o Mac) conectado.
 bool ble_is_connected(void);
+
+// false depois que o Mac avisa que o token OAuth expirou ({"auth":0}); volta a
+// true quando chega uso valido de novo.
+bool ble_auth_ok(void);

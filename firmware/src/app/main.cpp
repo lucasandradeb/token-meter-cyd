@@ -48,6 +48,20 @@ void loop() {
         last_conn = conn;
     }
 
+    // Token expirado -> troca a animacao/numeros por um aviso; ao voltar,
+    // restaura o rodape (o proximo dado real repovoa os cards).
+    static bool last_auth_ok = true;
+    bool auth_ok = ble_auth_ok();
+    if (auth_ok != last_auth_ok) {
+        if (!auth_ok) {
+            ui_set_auth_expired();
+            got_real = true;   // corta a onda de demo
+        } else {
+            ui_set_connected(conn);
+        }
+        last_auth_ok = auth_ok;
+    }
+
     // Dados reais do BLE tem prioridade; ao chegar o 1o, para a animacao.
     int s, w, sr, wr;
     if (ble_get_usage(&s, &w, &sr, &wr)) {
