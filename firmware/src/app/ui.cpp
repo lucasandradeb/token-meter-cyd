@@ -76,9 +76,9 @@ static void make_card(lv_obj_t *parent, int y, int h, const char *pill_text,
     lv_obj_set_style_bg_opa(pill, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(pill, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_pad_hor(pill, 10, 0);
-    lv_obj_set_style_pad_ver(pill, 3, 0);
+    lv_obj_set_style_pad_ver(pill, 2, 0);
     lv_label_set_text(pill, pill_text);
-    lv_obj_align(pill, LV_ALIGN_TOP_RIGHT, -12, 10);
+    lv_obj_align(pill, LV_ALIGN_TOP_RIGHT, -12, 6);
 
     out->bar = lv_bar_create(card);
     lv_obj_set_size(out->bar, 276, bar_h);
@@ -115,7 +115,9 @@ void ui_build(void) {
     // Sessao (grande) e Semana (compacto, ~metade da altura).
     make_card(scr, 74, 84, "Sessao", &lv_font_montserrat_40,
               &lv_font_montserrat_20, 10, &card_session);
-    make_card(scr, 162, 52, "Semana", &lv_font_montserrat_20,
+    // Semana: card compacto. Numero em fonte menor (14) e mais altura para a
+    // barra nao encostar no pill "Semana" nem o rodape colar embaixo.
+    make_card(scr, 160, 58, "Semana", &lv_font_montserrat_14,
               &lv_font_montserrat_14, 6, &card_weekly);
 
     lbl_footer = lv_label_create(scr);
