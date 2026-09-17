@@ -16,6 +16,7 @@ static volatile int s_sreset = 0;   // segundos ate reset da sessao
 static volatile int s_wreset = 0;   // segundos ate reset da semana
 static volatile bool s_has_new = false;
 static volatile bool s_connected = false;
+static volatile bool s_auth_ok = true;   // false quando o Mac avisa auth=0
 
 // Recebe o JSON escrito pelo Mac e atualiza o estado. NAO toca no LVGL.
 class DataCallbacks : public NimBLECharacteristicCallbacks {
@@ -27,12 +28,21 @@ class DataCallbacks : public NimBLECharacteristicCallbacks {
             Serial.printf("[ble] JSON invalido: %s\n", err.c_str());
             return;
         }
+        // Sinal de token expirado ({"auth":0}) tem prioridade: sem uso, so
+        // marca o estado para o loop trocar a UI. Ausente => 1 (ok).
+        if ((doc["auth"] | 1) == 0) {
+            s_auth_ok = false;
+            Serial.println("[ble] token expirado (auth=0)");
+            return;
+        }
+
         int session = doc["session"] | -1;
         int weekly = doc["weekly"] | -1;
         if (session < 0 && weekly < 0) {
             Serial.println("[ble] payload sem session/weekly");
             return;
         }
+        s_auth_ok = true;   // chegou uso valido => token voltou
         if (session >= 0) s_session = session;
         if (weekly >= 0) s_weekly = weekly;
         s_sreset = doc["s_reset"] | (int)s_sreset;
@@ -87,3 +97,5 @@ bool ble_get_usage(int *session, int *weekly, int *s_reset, int *w_reset) {
 }
 
 bool ble_is_connected(void) { return s_connected; }
+
+bool ble_auth_ok(void) { return s_auth_ok; }

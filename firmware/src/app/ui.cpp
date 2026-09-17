@@ -168,6 +168,21 @@ void ui_set_connected(bool connected) {
     }
 }
 
+void ui_set_auth_expired(void) {
+    // Zera os cards para nao deixar numeros velhos enganando.
+    lv_label_set_text(card_session.pct, "--%");
+    lv_label_set_text(card_weekly.pct, "--%");
+    lv_bar_set_value(card_session.bar, 0, LV_ANIM_OFF);
+    lv_bar_set_value(card_weekly.bar, 0, LV_ANIM_OFF);
+    lv_label_set_text(card_session.reset, "");
+    lv_label_set_text(card_weekly.reset, "");
+    recv_ms = 0;   // para a contagem regressiva
+    if (lbl_footer) {
+        lv_label_set_text(lbl_footer, "AUTH EXPIRADO - relogue no Claude");
+        lv_obj_set_style_text_color(lbl_footer, COL_DANGER, 0);
+    }
+}
+
 void ui_tick(void) {
     uint32_t now = millis();
     if (now - last_tick_ms < 1000) return;

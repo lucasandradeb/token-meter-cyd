@@ -12,5 +12,9 @@ void ui_set_usage(int session, int weekly, int s_reset, int w_reset);
 // Atualiza o indicador de conexao (bolinha + rodape).
 void ui_set_connected(bool connected);
 
+// Mostra o estado de token expirado: zera os cards e poe um aviso vermelho no
+// rodape. Chamar quando o Mac sinaliza auth=0.
+void ui_set_auth_expired(void);
+
 // Recalcula a contagem regressiva de reset. Chamar a cada iteracao do loop.
 void ui_tick(void);
