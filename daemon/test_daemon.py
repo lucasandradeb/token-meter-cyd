@@ -59,6 +59,32 @@ def test_reset_secs():
     assert daemon._reset_secs(str(time.time() - 100)) == 0  # passado -> 0
 
 
+def test_reset_clock():
+    import time
+    from datetime import datetime
+
+    # Vazio / invalido -> "--"
+    assert daemon._reset_clock(None) == "--"
+    assert daemon._reset_clock("") == "--"
+    assert daemon._reset_clock("abc") == "--"
+
+    # Passado -> "em breve"
+    assert daemon._reset_clock(str(time.time() - 60)) == "em breve"
+
+    # <24h -> so hora "HH:MM"
+    ts_near = time.time() + 2 * 3600
+    near = daemon._reset_clock(str(ts_near))
+    assert near == datetime.fromtimestamp(ts_near).strftime("%H:%M")
+    assert len(near) == 5 and near[2] == ":"
+
+    # >24h -> "<dia> HH:MM" com abrev pt-BR de 3 letras
+    ts_far = time.time() + 3 * 86400
+    far = daemon._reset_clock(str(ts_far))
+    wd, hhmm = far.split(" ")
+    assert wd in ("seg", "ter", "qua", "qui", "sex", "sab", "dom")
+    assert hhmm == datetime.fromtimestamp(ts_far).strftime("%H:%M")
+
+
 def test_poll_usage_auth_expired():
     _patch_httpx(_FakeResp(401, {}))
     out = asyncio.run(daemon.poll_usage("tok"))
@@ -70,15 +96,21 @@ def test_poll_usage_auth_expired():
 
 
 def test_poll_usage_ok():
+    import time
+    reset_5h = str(time.time() + 3600)
     headers = {
         "anthropic-ratelimit-unified-5h-utilization": "0.36",
         "anthropic-ratelimit-unified-7d-utilization": "0.87",
+        "anthropic-ratelimit-unified-5h-reset": reset_5h,
     }
     _patch_httpx(_FakeResp(200, headers))
     out = asyncio.run(daemon.poll_usage("tok"))
     assert isinstance(out, dict), f"esperava dict, veio {out!r}"
     assert out["session"] == 36
     assert out["weekly"] == 87
+    # strings prontas para a placa
+    assert out["s_reset_str"] == daemon._reset_clock(reset_5h)
+    assert out["w_reset_str"] == "--"   # sem header 7d-reset
 
 
 def _run_all():

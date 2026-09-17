@@ -63,8 +63,9 @@ void loop() {
     }
 
     // Dados reais do BLE tem prioridade; ao chegar o 1o, para a animacao.
-    int s, w, sr, wr;
-    if (ble_get_usage(&s, &w, &sr, &wr)) {
+    int s, w;
+    char sr[16], wr[16];
+    if (ble_get_usage(&s, &w, sr, wr, sizeof(sr))) {
         got_real = true;
         ui_set_usage(s, w, sr, wr);
     } else if (!got_real) {
@@ -72,10 +73,9 @@ void loop() {
         uint32_t t = millis() / 50;
         int session = (t % 200 < 100) ? (t % 100) : (100 - (t % 100));
         int weekly = ((t / 2) % 100);
-        ui_set_usage(session, weekly, 0, 0);
+        ui_set_usage(session, weekly, "", "");
     }
 
-    ui_tick();          // atualiza a contagem regressiva de reset
     lv_timer_handler();
     delay(5);
 }

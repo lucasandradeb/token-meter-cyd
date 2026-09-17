@@ -30,9 +30,6 @@ static Card card_weekly;
 static lv_obj_t *conn_dot;
 static lv_obj_t *lbl_footer;
 
-static int base_sreset = 0, base_wreset = 0;
-static uint32_t recv_ms = 0;
-static uint32_t last_tick_ms = 0;
 static int cur_session = 0, cur_weekly = 0;
 
 // ---- Imagem do topo -------------------------------------------------------
@@ -96,7 +93,7 @@ static void make_card(lv_obj_t *parent, int y, int h, const char *pill_text,
     out->reset = lv_label_create(card);
     lv_obj_set_style_text_font(out->reset, &lv_font_montserrat_14, 0);
     lv_obj_set_style_text_color(out->reset, COL_MUTED, 0);
-    lv_label_set_text(out->reset, "Reseta em --");
+    lv_label_set_text(out->reset, "Reseta --");
     lv_obj_align(out->reset, LV_ALIGN_BOTTOM_LEFT, 14, -4);
 }
 
@@ -128,34 +125,24 @@ void ui_build(void) {
     lv_obj_align(lbl_footer, LV_ALIGN_BOTTOM_MID, 0, -2);
 }
 
-static void fmt_reset(char *buf, size_t n, int secs) {
-    if (secs <= 0) { snprintf(buf, n, "Reseta em breve"); return; }
-    int d = secs / 86400, h = (secs % 86400) / 3600, m = (secs % 3600) / 60;
-    if (d >= 1)      snprintf(buf, n, "Reseta em %dd %dh", d, h);
-    else if (h >= 1) snprintf(buf, n, "Reseta em %dh %dm", h, m);
-    else             snprintf(buf, n, "Reseta em %dm", m);
-}
-
-static void apply_card(Card *c, int pct, int reset_secs) {
+static void apply_card(Card *c, int pct, const char *reset_str) {
     lv_color_t col = level_color(pct);
     lv_label_set_text_fmt(c->pct, "%d%%", pct);
     lv_bar_set_value(c->bar, pct, LV_ANIM_OFF);
     lv_obj_set_style_bg_color(c->bar, col, LV_PART_INDICATOR);
-    char buf[32];
-    fmt_reset(buf, sizeof(buf), reset_secs);
-    lv_label_set_text(c->reset, buf);
+    // O Mac ja manda o horario formatado (ex: "15:42", "qua 09:00").
+    lv_label_set_text_fmt(c->reset, "Reseta %s",
+                          (reset_str && *reset_str) ? reset_str : "--");
 }
 
-void ui_set_usage(int session, int weekly, int s_reset, int w_reset) {
+void ui_set_usage(int session, int weekly, const char *s_reset_str,
+                  const char *w_reset_str) {
     session = session < 0 ? 0 : (session > 100 ? 100 : session);
     weekly = weekly < 0 ? 0 : (weekly > 100 ? 100 : weekly);
     cur_session = session;
     cur_weekly = weekly;
-    base_sreset = s_reset;
-    base_wreset = w_reset;
-    recv_ms = millis();
-    apply_card(&card_session, session, s_reset);
-    apply_card(&card_weekly, weekly, w_reset);
+    apply_card(&card_session, session, s_reset_str);
+    apply_card(&card_weekly, weekly, w_reset_str);
 }
 
 void ui_set_connected(bool connected) {
@@ -176,22 +163,8 @@ void ui_set_auth_expired(void) {
     lv_bar_set_value(card_weekly.bar, 0, LV_ANIM_OFF);
     lv_label_set_text(card_session.reset, "");
     lv_label_set_text(card_weekly.reset, "");
-    recv_ms = 0;   // para a contagem regressiva
     if (lbl_footer) {
         lv_label_set_text(lbl_footer, "AUTH EXPIRADO - relogue no Claude");
         lv_obj_set_style_text_color(lbl_footer, COL_DANGER, 0);
     }
-}
-
-void ui_tick(void) {
-    uint32_t now = millis();
-    if (now - last_tick_ms < 1000) return;
-    last_tick_ms = now;
-    if (recv_ms == 0) return;
-    int elapsed = (int)((now - recv_ms) / 1000);
-    char buf[32];
-    fmt_reset(buf, sizeof(buf), base_sreset - elapsed);
-    lv_label_set_text(card_session.reset, buf);
-    fmt_reset(buf, sizeof(buf), base_wreset - elapsed);
-    lv_label_set_text(card_weekly.reset, buf);
 }

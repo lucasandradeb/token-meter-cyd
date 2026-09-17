@@ -23,6 +23,7 @@ import re
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -153,6 +154,32 @@ def _reset_secs(value: str | None) -> int:
         return 0
 
 
+# Abrev. de dia da semana em pt-BR (datetime.weekday(): segunda=0).
+_WEEKDAYS_PT = ["seg", "ter", "qua", "qui", "sex", "sab", "dom"]
+
+
+def _reset_clock(value: str | None) -> str:
+    """Header de reset (epoch) -> horario local de quando reseta, ja formatado
+    para a placa (que nao tem relogio).
+
+    <24h: "HH:MM"; >=24h: "<dia> HH:MM" (ex: "qua 09:00"); passado: "em breve";
+    ausente/invalido: "--". Usa o fuso local do Mac (respeita horario de verao).
+    """
+    if not value:
+        return "--"
+    try:
+        ts = float(value)
+    except (ValueError, TypeError):
+        return "--"
+    now = time.time()
+    if ts <= now:
+        return "em breve"
+    dt = datetime.fromtimestamp(ts)   # fuso local
+    if ts - now < 24 * 3600:
+        return dt.strftime("%H:%M")
+    return f"{_WEEKDAYS_PT[dt.weekday()]} {dt.strftime('%H:%M')}"
+
+
 async def poll_usage(token: str) -> "dict | object | None":
     """Retorna {session, weekly, s_reset, w_reset} com o uso atual.
 
@@ -181,11 +208,16 @@ async def poll_usage(token: str) -> "dict | object | None":
     if session is None and weekly is None:
         log(f"Sem headers de uso na resposta (HTTP {resp.status_code}).")
         return None
+    s_reset_hdr = h.get("anthropic-ratelimit-unified-5h-reset")
+    w_reset_hdr = h.get("anthropic-ratelimit-unified-7d-reset")
     return {
         "session": session or 0,
         "weekly": weekly or 0,
-        "s_reset": _reset_secs(h.get("anthropic-ratelimit-unified-5h-reset")),
-        "w_reset": _reset_secs(h.get("anthropic-ratelimit-unified-7d-reset")),
+        # Numericos ficam so para o log; a placa usa as strings prontas.
+        "s_reset": _reset_secs(s_reset_hdr),
+        "w_reset": _reset_secs(w_reset_hdr),
+        "s_reset_str": _reset_clock(s_reset_hdr),
+        "w_reset_str": _reset_clock(w_reset_hdr),
     }
 
 
